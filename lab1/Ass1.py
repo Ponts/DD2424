@@ -347,6 +347,7 @@ print("Best: " + str(bestAcc))
 
 #Saving best model, all data and decay eta:	41.28 %
 
-#Saving best model, all data, ensemble: 	
+#Saving best model, all data, ensemble: 	41.31 %	
+
 #index = np.random.randint(0,len(trainX.T))
 #plotImage(trainX[:,index],labelNames[labelY[index]])
