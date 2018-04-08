@@ -33,8 +33,8 @@ def plotImage(x,name=""):
 
 class OneLayer:
 	def __init__(self, inputs, outputs, trainX, trainY, validationX, validationY, eta, batchSize = 200, regTerm = 0.1):
-		self.W = np.array([np.random.normal(0,0.1) for i in range(inputs*outputs)]).reshape(outputs,inputs)
-		self.b = np.array([np.random.normal(0,0.1) for i in range(outputs)]).reshape(outputs,1)
+		self.W = np.array([np.random.normal(0,1/3072) for i in range(inputs*outputs)]).reshape(outputs,inputs)
+		self.b = np.array([np.random.normal(0,0.0) for i in range(outputs)]).reshape(outputs,1)
 		self.eta = eta
 		self.batchSize = batchSize
 		self.trainX = trainX
@@ -110,8 +110,8 @@ class OneLayer:
 		djdb = np.zeros((self.b.shape[0], self.b.shape[1]))
 		for i in range(len(X.T)):
 			adddjdw, adddjdb = self.calculateSVMGradient(X[:,i:i+1],Y[:,i:i+1])
-			djdw1+=adddjdw
-			djdb1+=adddjdb
+			djdw+=adddjdw
+			djdb+=adddjdb
 		djdw/=X.shape[1]
 		djdb/=X.shape[1]
 		self.W -= self.eta*(djdw + 2*self.regTerm*self.W)
@@ -154,7 +154,7 @@ class OneLayer:
 		J = self.getJ(L)
 		return P,L,J
 
-	def fit(self, epochs=40, decayEta = False, saveBestModel=False):
+	def fit(self, epochs=40, decayEta = False, saveBestModel=False, stopEarly = False):
 		if saveBestModel:
 			bestW = self.W
 			bestB = self.b
@@ -164,6 +164,8 @@ class OneLayer:
 		for i in range(epochs):
 			accs[i] = self.computeCost(self.trainX, self.trainY)
 			valaccs[i] = self.computeCost(self.validationX, self.validationY)
+			if i > 1 and stopEarly and valaccs[i] > valaccs[i-1]:
+				break
 			for j in range(1,int(len(self.trainX.T)/self.batchSize)+1):
 				jStart = (j-1)*self.batchSize
 				jEnd = j * self.batchSize
@@ -181,7 +183,7 @@ class OneLayer:
 			self.b = np.copy(bestB)
 		return accs, valaccs
 
-	def fitSVM(self, epochs=40, decayEta = False, saveBestModel=False):
+	def fitSVM(self, epochs=40, decayEta = False, saveBestModel=False, stopEarly = False):
 		if saveBestModel:
 			bestW = self.W
 			bestB = self.b
@@ -191,6 +193,8 @@ class OneLayer:
 		for i in range(epochs):
 			accs[i] = self.computeSVMCost(self.trainX, self.trainY)
 			valaccs[i] = self.computeSVMCost(self.validationX, self.validationY)
+			if i > 1 and stopEarly and valaccs[i] > valaccs[i-1]:
+				break
 			for j in range(1,int(len(self.trainX.T)/self.batchSize)+1):
 				jStart = (j-1)*self.batchSize
 				jEnd = j * self.batchSize
@@ -199,7 +203,6 @@ class OneLayer:
 				self.eta = self.eta*0.9
 			newAcc = self.computeAccuracy(self.validationX, self.validationY)
 			if saveBestModel and newAcc > bestValAcc:
-				print("New best found woho")
 				bestW = np.copy(self.W)
 				bestB = np.copy(self.b)
 				bestValAcc = newAcc
@@ -225,25 +228,26 @@ class OneLayer:
 		plt.show()
 
 
-def noImprovementsTest():
+def noImprovementsTest(stopEarly = False):
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 	testX, testLabelY, _, testY = getData("test_batch")
-	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, 0.01, 100, regTerm=0.0)
-	epochs=40
-	accs, valaccs = network.fit(epochs, saveBestModel=True)
+	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, 0.01, 100, regTerm=0.00)
+	epochs=150
+	accs, valaccs = network.fit(epochs, stopEarly = stopEarly)
 	plt.plot(accs, color="g", label="Training loss")
 	plt.plot(valaccs,color="r", label="Validation loss")
+	plt.title("Eta: " + str(network.eta) + ", lambda: " + str(network.regTerm))
 	plt.xlabel("Epochs")
 	plt.ylabel("Loss")
 	plt.legend()
-	#plt.show()
-	#network.printWeights()
-	print(network.computeAccuracy(testX, testY))
-	print(network.computeAccuracy(validationX, validationY))
+	plt.show()
+	network.printWeights()
+	print("testAcc: " + str(network.computeAccuracy(testX, testY)))
+	print("Validacc: " + str(network.computeAccuracy(validationX, validationY)))
 	return network
 
-def withImprovementsTest():
+def withImprovementsTest(eta=0.01, lambd = 0.0, stopEarly = False):
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	trainX2, labelY2, labelNames2, trainY2 = getData("data_batch_2")
 	trainX3, labelY3, labelNames3, trainY3 = getData("data_batch_3")
@@ -251,14 +255,14 @@ def withImprovementsTest():
 	trainX5, labelY5, labelNames5, trainY5 = getData("data_batch_5")
 	testX, testLabelY, _, testY = getData("test_batch")
 
-	trainX = np.concatenate((trainX,trainX2, trainX3, trainX4, trainX5), axis=1)
-	trainY = np.concatenate((trainY,trainY2, trainY3, trainY4, trainY5), axis=1)
+	trainX = np.concatenate((trainX,trainX3, trainX4, trainX5), axis=1)
+	trainY = np.concatenate((trainY,trainY3, trainY4, trainY5), axis=1)
 
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
-	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, 0.01, 100, regTerm=0.0001)
-	epochs=40
+	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, eta, 100, regTerm=lambd)
+	epochs=150
 
-	accs, valaccs = network.fit(epochs, decayEta = False, saveBestModel=True)
+	accs, valaccs = network.fit(epochs, decayEta = False, saveBestModel=False, stopEarly = stopEarly)
 
 	plt.plot(accs, color="g", label="Training loss")
 	plt.plot(valaccs,color="r", label="Validation loss")
@@ -269,25 +273,43 @@ def withImprovementsTest():
 	#network.printWeights()
 
 	testAcc = (network.computeAccuracy(testX, testY))
-	print(testAcc)
+	print("Testacc: " + str(testAcc))
 	valAcc = network.computeAccuracy(validationX, validationY)
 	print(valAcc)
 	return network
+
+def ensembleTest():
+	testX, testLabelY, _, testY = getData("test_batch")
+	networks = []
+	for eta in [0.01, 0.02, 0.015]:
+		for lambd in [0.0, 0.01, 0.05, 0.1]:
+			networks.append(withImprovementsTest(eta=eta, lambd=lambd, stopEarly=True))
+
+	Ps = np.array([network.evaluateClassifier(testX) for network in networks])
+	votes = np.zeros((len(networks), Ps.shape[2]), dtype=np.int8)
+	for n in range(len(networks)):
+		for sample in range(Ps.shape[2]):
+			votes[n][sample] = int(np.argmax(Ps[n,:,sample]))
+
+
+	ensembleVote = np.array([np.argmax(np.bincount(votes[:,sample])) for sample in range(votes.shape[1])])
+	print("testAccuracy: ")
+	print(checkEnsembleAccuracy(ensembleVote, testY))
 
 def testSVMLoss():
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 	testX, testLabelY, _, testY = getData("test_batch")
-	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, 0.005, 100, regTerm=0.01)
+	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, 0.01, 100, regTerm=0.0)
 	epochs=40
-	accs, valaccs = network.fitSVM(epochs, saveBestModel=True)
+	accs, valaccs = network.fitSVM(epochs, saveBestModel=False, stopEarly=True)
 	plt.plot(accs, color="g", label="Training loss")
 	plt.plot(valaccs,color="r", label="Validation loss")
 	plt.xlabel("Epochs")
 	plt.ylabel("Loss")
 	plt.legend()
 	plt.show()
-	network.printWeights()
+	#network.printWeights()
 	print(network.computeAccuracy(testX, testY))
 	print(network.computeAccuracy(validationX, validationY))
 
@@ -299,55 +321,30 @@ def checkEnsembleAccuracy(votes, Y):
 	return (acc/Y.shape[1])*100
 	
 
+if __name__ == "__main__":
+	noImprovementsTest(stopEarly = True)
+	#withImprovementsTest(stopEarly = True)
+	#ensembleTest()
+	
+	#testSVMLoss()
 
-#X är rätt
-#Y är rätt
-#W är rätt
-#b är rätt
-#P är rätt
-# K = 10, N = 1000, D = 3072
-testX, testLabelY, _, testY = getData("test_batch")
-networks = []
-for i in range(10):
-	networks.append(withImprovementsTest())
+	#Best without improvements:  				34.39 % validation, 39.33 train
 
-Ps = np.array([network.evaluateClassifier(testX) for network in networks])
-votes = np.zeros((len(networks), Ps.shape[2]), dtype=np.int8)
-for n in range(len(networks)):
-	for sample in range(Ps.shape[2]):
-		votes[n][sample] = int(np.argmax(Ps[n,:,sample]))
+	#Ensemble vote:								36.26 %
 
+	#Added training on all data: 				40.68 %
 
-ensembleVote = np.array([np.argmax(np.bincount(votes[:,sample])) for sample in range(votes.shape[1])])
-print("testAccuracy: ")
-print(checkEnsembleAccuracy(ensembleVote, testY))
-'''
-bestAcc = 0
-for i in range(10):
-	acc = withImprovementsTest()
-	if bestAcc < acc:
-		bestAcc = acc
-print("Best: " + str(bestAcc))
-'''
-#testSVMLoss()
+	#Decaying eta on all data: 					38.05 %
 
-#Best without improvements:  				34.39 % validation, 39.33 train
+	#Decaying eta:								34.46 %
 
-#Ensemble vote:								36.26 %
+	#Saving best model:							35.22 %
 
-#Added training on all data: 				40.68 %
+	#Saving best model and all data:			41.39 %
 
-#Decaying eta on all data: 					38.05 %
+	#Saving best model, all data and decay eta:	41.28 %
 
-#Decaying eta:								34.46 %
+	#Saving best model, all data, ensemble: 	41.31 %	
 
-#Saving best model:							35.22 %
-
-#Saving best model and all data:			41.39 %
-
-#Saving best model, all data and decay eta:	41.28 %
-
-#Saving best model, all data, ensemble: 	41.31 %	
-
-#index = np.random.randint(0,len(trainX.T))
-#plotImage(trainX[:,index],labelNames[labelY[index]])
+	#index = np.random.randint(0,len(trainX.T))
+	#plotImage(trainX[:,index],labelNames[labelY[index]])
