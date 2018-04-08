@@ -99,7 +99,7 @@ analW/=trainX.shape[1]
 analB/=trainY.shape[1]
 analW += 2*network.regTerm*network.W
 print("W")
-print(np.min((abs(analW - grad_W)) / np.clip((abs(grad_W) + abs(analW)), a_min=e, a_max=5000)))
+print(np.max((abs(analW - grad_W)) / np.clip((abs(grad_W) + abs(analW)), a_min=e, a_max=5000)))
 print("B")
 print(np.max((abs(analB - grad_b)) / np.clip((abs(grad_b) + abs(analB)), a_min=e, a_max=5000)))
 print("done")

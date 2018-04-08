@@ -33,7 +33,7 @@ def plotImage(x,name=""):
 
 class OneLayer:
 	def __init__(self, inputs, outputs, trainX, trainY, validationX, validationY, eta, batchSize = 200, regTerm = 0.1):
-		self.W = np.array([np.random.normal(0,1/3072) for i in range(inputs*outputs)]).reshape(outputs,inputs)
+		self.W = np.array([np.random.normal(0,2/(3072+10)) for i in range(inputs*outputs)]).reshape(outputs,inputs)
 		self.b = np.array([np.random.normal(0,0.0) for i in range(outputs)]).reshape(outputs,1)
 		self.eta = eta
 		self.batchSize = batchSize
@@ -255,11 +255,11 @@ def withImprovementsTest(eta=0.01, lambd = 0.0, stopEarly = False):
 	trainX5, labelY5, labelNames5, trainY5 = getData("data_batch_5")
 	testX, testLabelY, _, testY = getData("test_batch")
 
-	trainX = np.concatenate((trainX,trainX3, trainX4, trainX5), axis=1)
-	trainY = np.concatenate((trainY,trainY3, trainY4, trainY5), axis=1)
+	trainX = np.concatenate((trainX, trainX2[:,0:9000], trainX3, trainX4, trainX5), axis=1)
+	trainY = np.concatenate((trainY, trainY2[:,0:9000], trainY3, trainY4, trainY5), axis=1)
 
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
-	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, eta, 100, regTerm=lambd)
+	network = OneLayer(3072,10, trainX, trainY, validationX[:,9000:-1], validationY[:,9000:-1], eta, 100, regTerm=lambd)
 	epochs=150
 
 	accs, valaccs = network.fit(epochs, decayEta = False, saveBestModel=False, stopEarly = stopEarly)
@@ -281,8 +281,9 @@ def withImprovementsTest(eta=0.01, lambd = 0.0, stopEarly = False):
 def ensembleTest():
 	testX, testLabelY, _, testY = getData("test_batch")
 	networks = []
-	for eta in [0.01, 0.02, 0.015]:
-		for lambd in [0.0, 0.01, 0.05, 0.1]:
+	for eta in [0.01, 0.02, 0.015, 0.02, 0.02, 0.02, 0.01]:
+		for lambd in [0.0, 0.01, 0.05]:
+			print(eta,lambd)
 			networks.append(withImprovementsTest(eta=eta, lambd=lambd, stopEarly=True))
 
 	Ps = np.array([network.evaluateClassifier(testX) for network in networks])
@@ -293,16 +294,23 @@ def ensembleTest():
 
 
 	ensembleVote = np.array([np.argmax(np.bincount(votes[:,sample])) for sample in range(votes.shape[1])])
-	print("testAccuracy: ")
+	print("ensemble testAccuracy: ")
 	print(checkEnsembleAccuracy(ensembleVote, testY))
+	bestacc = 0.0
+	for network in networks:
+		newacc = network.computeAccuracy(testX,testY)
+		if newacc > bestacc:
+			bestacc = newacc
+	print("best network acc in ensemble: ")
+	print(bestacc)
 
 def testSVMLoss():
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 	testX, testLabelY, _, testY = getData("test_batch")
-	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, 0.01, 100, regTerm=0.0)
+	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, 0.02, 100, regTerm=0.0)
 	epochs=40
-	accs, valaccs = network.fitSVM(epochs, saveBestModel=False, stopEarly=True)
+	accs, valaccs = network.fitSVM(epochs, decayEta=True, saveBestModel=True, stopEarly=True)
 	plt.plot(accs, color="g", label="Training loss")
 	plt.plot(valaccs,color="r", label="Validation loss")
 	plt.xlabel("Epochs")
@@ -322,9 +330,9 @@ def checkEnsembleAccuracy(votes, Y):
 	
 
 if __name__ == "__main__":
-	noImprovementsTest(stopEarly = True)
 	#withImprovementsTest(stopEarly = True)
-	#ensembleTest()
+	#withImprovementsTest(stopEarly = True)
+	ensembleTest()
 	
 	#testSVMLoss()
 
