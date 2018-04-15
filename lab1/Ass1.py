@@ -164,7 +164,7 @@ class OneLayer:
 		for i in range(epochs):
 			accs[i] = self.computeCost(self.trainX, self.trainY)
 			valaccs[i] = self.computeCost(self.validationX, self.validationY)
-			if i > 1 and stopEarly and valaccs[i] > valaccs[i-1]:
+			if i > 5 and stopEarly and valaccs[i-1] - valaccs[i] < 1.0e-5:
 				break
 			for j in range(1,int(len(self.trainX.T)/self.batchSize)+1):
 				jStart = (j-1)*self.batchSize
@@ -193,7 +193,7 @@ class OneLayer:
 		for i in range(epochs):
 			accs[i] = self.computeSVMCost(self.trainX, self.trainY)
 			valaccs[i] = self.computeSVMCost(self.validationX, self.validationY)
-			if i > 1 and stopEarly and valaccs[i] > valaccs[i-1]:
+			if i > 5 and stopEarly and valaccs[i-1] - valaccs[i] < 1.0e-5:
 				break
 			for j in range(1,int(len(self.trainX.T)/self.batchSize)+1):
 				jStart = (j-1)*self.batchSize
@@ -228,12 +228,12 @@ class OneLayer:
 		plt.show()
 
 
-def noImprovementsTest(stopEarly = False):
+def noImprovementsTest(eta = 0.01, regterm = 0.0, stopEarly = False):
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 	testX, testLabelY, _, testY = getData("test_batch")
-	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, 0.01, 100, regTerm=0.00)
-	epochs=150
+	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, eta, 100, regTerm=regterm)
+	epochs=40
 	accs, valaccs = network.fit(epochs, stopEarly = stopEarly)
 	plt.plot(accs, color="g", label="Training loss")
 	plt.plot(valaccs,color="r", label="Validation loss")
@@ -242,9 +242,9 @@ def noImprovementsTest(stopEarly = False):
 	plt.ylabel("Loss")
 	plt.legend()
 	plt.show()
-	network.printWeights()
-	print("testAcc: " + str(network.computeAccuracy(testX, testY)))
-	print("Validacc: " + str(network.computeAccuracy(validationX, validationY)))
+	#network.printWeights()
+	#print("testAcc: " + str(network.computeAccuracy(testX, testY)))
+	#print("Validacc: " + str(network.computeAccuracy(validationX, validationY)))
 	return network
 
 def withImprovementsTest(eta=0.01, lambd = 0.0, stopEarly = False):
@@ -272,10 +272,10 @@ def withImprovementsTest(eta=0.01, lambd = 0.0, stopEarly = False):
 	#plt.show()
 	#network.printWeights()
 
-	testAcc = (network.computeAccuracy(testX, testY))
-	print("Testacc: " + str(testAcc))
-	valAcc = network.computeAccuracy(validationX, validationY)
-	print(valAcc)
+	#testAcc = (network.computeAccuracy(testX, testY))
+	#print("Testacc: " + str(testAcc))
+	#valAcc = network.computeAccuracy(validationX, validationY)
+	#print(valAcc)
 	return network
 
 def ensembleTest():
@@ -304,22 +304,23 @@ def ensembleTest():
 	print("best network acc in ensemble: ")
 	print(bestacc)
 
-def testSVMLoss():
+def testSVMLoss(eta = 0.02, regTerm = 0.2, stopEarly = False):
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 	testX, testLabelY, _, testY = getData("test_batch")
-	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, 0.02, 100, regTerm=0.0)
+	network = OneLayer(3072,10, trainX, trainY, validationX, validationY, eta, 100, regTerm=regTerm)
 	epochs=40
-	accs, valaccs = network.fitSVM(epochs, decayEta=True, saveBestModel=True, stopEarly=True)
+	accs, valaccs = network.fitSVM(epochs, stopEarly = stopEarly) #decayEta=True, saveBestModel=True, stopEarly=True)
 	plt.plot(accs, color="g", label="Training loss")
 	plt.plot(valaccs,color="r", label="Validation loss")
 	plt.xlabel("Epochs")
 	plt.ylabel("Loss")
 	plt.legend()
-	plt.show()
+	#plt.show()
 	#network.printWeights()
-	print(network.computeAccuracy(testX, testY))
-	print(network.computeAccuracy(validationX, validationY))
+	#print(network.computeAccuracy(testX, testY))
+	#print(network.computeAccuracy(validationX, validationY))
+	return network
 
 def checkEnsembleAccuracy(votes, Y):
 	acc = 0.0
@@ -332,8 +333,18 @@ def checkEnsembleAccuracy(votes, Y):
 if __name__ == "__main__":
 	#withImprovementsTest(stopEarly = True)
 	#withImprovementsTest(stopEarly = True)
-	ensembleTest()
+	#ensembleTest()
 	
+	testX, testLabelY, _, testY = getData("test_batch")
+	for lambd in [0.0, 0.1, 0.2, 0.5]:
+		for eta in [0.01, 0.005, 0.0001]:
+			SVMNetwork = testSVMLoss(eta=eta, regTerm=lambd, stopEarly = True)
+			CENetwork = noImprovementsTest(eta=eta, regterm=lambd, stopEarly = True)
+			print("ETA: " + str(eta) + ", LAMBDA: " + str(lambd))
+			print("SVM Accuracy: " + str(SVMNetwork.computeAccuracy(testX,testY)))
+			print("CE Accuracy:  " + str(CENetwork.computeAccuracy(testX,testY)))
+
+
 	#testSVMLoss()
 
 	#Best without improvements:  				34.39 % validation, 39.33 train

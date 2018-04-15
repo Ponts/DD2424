@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import random
 import pandas as pd
+import glob
 filepath = "cifar-10-batches-py/"
 
 def unpickle(file):
@@ -36,10 +37,10 @@ def getMean(X):
 	return np.mean(X,1).reshape(-1,1)
 
 class TwoLayer():
-	def __init__(self, setup, trainX, trainY, validationX, validationY, eta, batchSize = 200, regTerm = 0.1, p = 0.99):
-		self.W1 = np.array([np.random.normal(0,0.1) for i in range(setup[0]*setup[1])]).reshape(setup[1],setup[0])
+	def __init__(self, setup, trainX, trainY, validationX, validationY, eta, batchSize = 200, regTerm = 0.1, p = 0.99, activationFunc = 'RELU'):
+		self.W1 = np.array([np.random.normal(0,0.001) for i in range(setup[0]*setup[1])]).reshape(setup[1],setup[0])
 		self.b1 = np.array([0.0 for i in range(setup[1])]).reshape(setup[1],1)
-		self.W2 = np.array([np.random.normal(0,0.1) for i in range(setup[1]*setup[2])]).reshape(setup[2],setup[1])
+		self.W2 = np.array([np.random.normal(0,0.001) for i in range(setup[1]*setup[2])]).reshape(setup[2],setup[1])
 		self.b2 = np.array([0.0 for i in range(setup[2])]).reshape(setup[2],1)
 		self.p = p
 		self.eta = eta
@@ -53,6 +54,7 @@ class TwoLayer():
 		self.b1V = np.array([0.0 for i in range(setup[1])]).reshape(setup[1],1)
 		self.W2V = np.array([0.0 for i in range(setup[1]*setup[2])]).reshape(setup[2],setup[1])
 		self.b2V = np.array([0.0 for i in range(setup[2])]).reshape(setup[2],1)
+		self.activationFunc = activationFunc
 
 
 	def evaluateClassifier(self, X):
@@ -76,12 +78,22 @@ class TwoLayer():
 		J = self.getJ(L)
 		return J
 
+	def sigmoid(self, X):
+		return 1/(1+np.exp(-X))
+
+	#Input is the hidden state
+	def deltaSigmoid(self, X):
+		return X * (1-X)
+
 	def getS1(self, X):
 		return np.dot(self.W1,X) + self.b1
 
 	def getH(self,S1):
-		h = np.copy(S1)
-		h[h < 0.0] = 0.0
+		if self.activationFunc == 'RELU':
+			h = np.copy(S1)
+			h[h < 0.0] = 0.0
+		elif self.activationFunc == 'SIGM':
+			h = self.sigmoid(S1)
 		return h
 
 	def getS2(self, h):
@@ -143,28 +155,28 @@ class TwoLayer():
 		dldb2 = g
 		dldw2 = np.dot(g,h.T)
 		g = np.dot(g.T,self.W2)
-
-		ind = np.where(S1>0,1,0)[:,0]
-		#print(g.shape, ind.shape)
-		g = np.dot(g,np.diag(ind)).T
+		if self.activationFunc == 'RELU':
+			ind = np.where(S1>0,1,0)[:,0]
+			#print(g.shape, ind.shape)
+			g = np.dot(g,np.diag(ind)).T
+		elif self.activationFunc == 'SIGM':
+			g = np.dot(g,self.deltaSigmoid(h))
 		dldb1 = g
 		dldw1 = np.dot(g,x.T)
 		return dldw1, dldb1, dldw2, dldb2
 
-	def fit(self, epochs=40, decayEta = False):
-		accs = []
-		valaccs = []
-		accsies = []
-		validaccsies = []
-		testaccsies = []
+	def fit(self, epochs=40, decayEta = False, earlyStopping = False):
+		loss = []
+		valLoss = []
+		trainAcc = []
+		validAcc = []
 		for i in range(epochs):
-			accs.append(self.computeCost(self.trainX, self.trainY))
-			valaccs.append(self.computeCost(self.validationX, self.validationY))
-			accsies.append(self.computeAccuracy(self.trainX, self.trainY)) 
-			validaccsies.append(self.computeAccuracy(self.validationX, self.validationY)) 
-			testaccsies.append(self.computeAccuracy(testX, testY)) 
-			#if i>0 and valaccs[i] > valaccs[i-1]:
-			#	break
+			loss.append(self.computeCost(self.trainX, self.trainY))
+			valLoss.append(self.computeCost(self.validationX, self.validationY))
+			trainAcc.append(self.computeAccuracy(self.trainX, self.trainY)) 
+			validAcc.append(self.computeAccuracy(self.validationX, self.validationY)) 
+			if earlyStopping and i>5 and valLoss[i-1] - valLoss[i] < 1e-5:
+				break
 			for j in range(1,int(len(self.trainX.T)/self.batchSize)+1):
 				jStart = (j-1)*self.batchSize
 				jEnd = j * self.batchSize
@@ -172,61 +184,125 @@ class TwoLayer():
 			if decayEta:
 				self.eta = self.eta*0.95
 			print(i)
-		return accs, valaccs, accsies#, validaccsies, testaccsies
+		return loss, valLoss, trainAcc, validAcc
 
-
-
-trainX, labelY, labelNames, trainY = getData("data_batch_1")
-validationX, valLabelY, _, validationY = getData("data_batch_2")
-testX, testLabelY, _, testY = getData("test_batch")
-mean = getMean(trainX)
-trainX = trainX - np.tile(mean,(1,trainX.shape[1]))
-validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
-'''
-network = TwoLayer([3072, 50, 10], trainX, trainY, validationX, validationY, 0.01, 100, regTerm=0.000001, p = 0.95)
-_,_,accs, validaccsies, testaccsies = network.fit(epochs=10)
-plt.plot(accs, label="train accuracy")
-plt.plot(validaccsies, label="validation accuracy")
-plt.plot(testaccsies, label="test accuracy")
-plt.xlabel("Epochs")
-plt.ylabel("Accuracy")
-plt.show()
-print(max(validaccsies))
-'''
-
-bestEta = 0
-bestLambda = 0.000001
-bestTestAcc = 0.0
-tries = 0
-for eta in [0.5, 0.3, 0.1, 0.05, 0.01]:
-	for lambd in [0.001, 0.005, 0.01, 0.05, 0.1]:
-		#eta = np.random.uniform(low = etaRange[0], high = etaRange[1])
-		#lambd = np.random.uniform(low=lRange[0], high=lRange[1])
-		network = TwoLayer([3072, 50, 10], trainX, trainY, validationX, validationY, eta, 100, regTerm=lambd, p = 0.8)
+def randomSearch(mode = "coarseSearch"):
+	trainX, labelY, labelNames, trainY = getData("data_batch_1")
+	validationX, valLabelY, _, validationY = getData("data_batch_2")
+	testX, testLabelY, _, testY = getData("test_batch")
+	mean = getMean(trainX)
+	trainX = trainX - np.tile(mean,(1,trainX.shape[1]))
+	validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
+	testX = testX - np.tile(mean, (1, testX.shape[1]))
+	tries = 0
+	while tries <150:
+		eta = np.random.uniform(low = 0.025, high = 0.07)
+		lambd = np.random.uniform(low=0.00005, high=0.002)
+		network = TwoLayer([3072, 50, 10], trainX, trainY, validationX, validationY, eta, 100, regTerm=lambd, p = 0.9)
 		print("Eta: " + str(eta) + ", Lambda: " + str(lambd))
 
-		accs, valaccs, accsies = network.fit(epochs=40, decayEta = True)
+		trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=20)
+		#plt.plot(trainAcc, label="train accuracy")
+		#plt.plot(valAcc, label="validation accuracy")
+		#plt.legend()
+		#plt.xlabel("Epochs")
+		#plt.ylabel("Accuracy")
+		#plt.show()
 		testAcc = network.computeAccuracy(testX, testY)
-		if testAcc > bestTestAcc:
-			bestEta = eta
-			bestTestAcc = testAcc
-			bestLambda = lambd
 		print(testAcc)
-		valAcc = network.computeAccuracy(validationX, validationY)
-		trainAcc = network.computeAccuracy(trainX, trainY)
-		plt.plot(accs, label="eta: " + str(eta) + ", lambda: " + str(lambd))
-		#plt.plot(valaccs,color="r", label="Validation loss")
-		plt.xlabel("Epochs")
-		plt.ylabel("Loss")
-		result = {'ValAccDone' : valAcc, 'trainAccDone' :  trainAcc, 'eta' : eta, 'lambda' : lambd, 'trainLoss' : accs, 'valLoss' : valaccs, 'trainAccuracy' : accsies}
-		pd.DataFrame([result]).to_csv('coarseSearch/eta_' + str(eta) + '_lambda_' +str(lambd) + '.csv',  header=True)
+		valAccDone = network.computeAccuracy(validationX, validationY)
+		print(valAccDone)
+		#print(trainAcc[-1])
+		result = {'ValAccDone' : valAccDone, 'trainAccDone' :  trainAcc, 'eta' : eta, 'lambda' : lambd, 'trainLoss' : trainLoss, 'valLoss' : valLoss, 'trainAccuracy' : trainAcc, 'valAccuracy' : valAcc}
+		pd.DataFrame([result]).to_csv(mode + '/eta_' + str(eta) + '_lambda_' +str(lambd) + '.csv',  header=True)
 		tries += 1
-plt.legend()
-plt.show()
-print("BestEta: " + str(bestEta))
-print("BestLamda: " + str(bestLambda))
-print("bestTestAcc: " + str(bestTestAcc))
 
-#mellan 0.05 och 0.15 verkar bra eta då p = 0.99
-#samma för p = 0.5
-#samma för p = 0.90
+
+
+def findThreeBestFromCoarse(folder = "coarseSearch"):
+	path =r'D:\\DD2424\\lab2\\' + folder
+	allFiles = glob.glob(path + "/*.csv")
+	frame = pd.DataFrame()
+	list_ = []
+	for file_ in allFiles:
+	    df = pd.read_csv(file_,index_col=None)#, header=0)
+	    list_.append(df)
+	frame = pd.concat(list_)
+	nr = 3
+	bestThree = [0.0] * nr
+	bestThreeI = [0] * nr
+	index = 0
+	for _, row in frame.iterrows():
+		withHypers = np.max(eval(row['valAccuracy']))
+		for i in range(len(bestThree)):
+			if withHypers > bestThree[i]:
+				bestThree = bestThree[:i] + [withHypers] + bestThree[i:-1]
+				bestThreeI = bestThreeI[:i] + [index] + bestThreeI[i:-1]
+				break
+		index+=1
+	print(bestThreeI)
+	print("BestSettings:")
+	for index in bestThreeI:
+		print(frame.eta.values[index], frame['lambda'].values[index], frame['ValAccDone'].values[index])
+	for index in bestThreeI:
+		plt.plot(eval(frame.valAccuracy.values[index]), label="eta:" + str(frame.eta.values[index]) + " lambda: " + str(frame['lambda'].values[index]))
+		#plt.plot(eval(frame.valLoss.values[index]), label = "validation loss")
+		
+	plt.legend()
+	plt.show()
+	print("Validation Accuracy: ")
+	for index in bestThreeI:
+		print(np.max(eval(frame.valAccuracy.values[index])))
+
+	
+
+
+if __name__ == "__main__":
+	findThreeBestFromCoarse("coarseSearch")
+	#randomSearch("fineSearch")
+	'''
+	trainX, labelY, labelNames, trainY = getData("data_batch_1")
+	trainX2, labelY2, labelNames2, trainY2 = getData("data_batch_2")
+	trainX3, labelY3, labelNames3, trainY3 = getData("data_batch_3")
+	trainX4, labelY4, labelNames4, trainY4 = getData("data_batch_4")
+	trainX5, labelY5, labelNames5, trainY5 = getData("data_batch_5")
+	testX, testLabelY, _, testY = getData("test_batch")
+
+	#trainX = np.concatenate((trainX, trainX2, trainX3, trainX4, trainX5), axis=1)
+	#trainY = np.concatenate((trainY, trainY2, trainY3, trainY4, trainY5), axis=1)
+	validationX, valLabelY, _, validationY = getData("data_batch_2")
+
+	mean = getMean(trainX)
+	trainX = trainX - np.tile(mean,(1,trainX.shape[1]))
+	validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
+	testX = testX - np.tile(mean, (1, testX.shape[1]))
+	# PRETTY GOOD
+	eta = 0.005244093510324865
+	lambd = 0.00011369581140139731
+	#
+	network = TwoLayer([3072, 50, 10], trainX, trainY, validationX, validationY, eta, 100, regTerm=lambd, p = 0.9, activationFunc = 'SIGM')
+	trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=200, decayEta = True, earlyStopping = True)
+	plt.plot(trainLoss, label="train loss")
+	plt.plot(valLoss, label="validation loss")
+	plt.legend()
+	plt.xlabel("Epochs")
+	plt.ylabel("Accuracy")
+	plt.show()
+	plt.plot(trainAcc, label="train accuracy")
+	plt.plot(valAcc, label="validation accuracy")
+	plt.legend()
+	plt.xlabel("Epochs")
+	plt.ylabel("Accuracy")
+	plt.show()
+	print(network.computeAccuracy(testX, testY))
+	'''
+
+
+
+#mellan 0.001 och 0.15 verkar bra eta 
+#mellan 0.0001 och 0.001
+
+
+#FINE SEARCH
+#eta (low = 0.025, high = 0.07)
+#lambda (low=0.00005, high=0.002)
