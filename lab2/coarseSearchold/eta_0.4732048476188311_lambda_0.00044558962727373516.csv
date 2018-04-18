@@ -1,0 +1,2 @@
+,ValAccDone,eta,lambda,trainAccDone,trainAccuracy,trainLoss,valAccuracy,valLoss
+0,9.84,0.4732048476188311,0.00044558962727373516,"[10.27, 10.05, 10.05, 10.05, 10.05]","[10.27, 10.05, 10.05, 10.05, 10.05]","[2.302926946360205, nan, nan, nan, nan]","[9.87, 9.84, 9.84, 9.84, 9.84]","[2.302898612416985, nan, nan, nan, nan]"

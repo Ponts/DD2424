@@ -181,12 +181,12 @@ class TwoLayer():
 				jStart = (j-1)*self.batchSize
 				jEnd = j * self.batchSize
 				self.updateWithBatch(self.trainX[:,jStart:jEnd], self.trainY[:,jStart:jEnd])
-			if decayEta:
+			if decayEta and i % 10 == 0:
 				self.eta = self.eta*0.95
 			print(i)
 		return loss, valLoss, trainAcc, validAcc
 
-def randomSearch(mode = "coarseSearch"):
+def randomSearch(mode = "coarseSearch", etaLow = 0.0025, etaHigh = 0.6, lambdLow = 0.00005, lambdHigh=0.002, epochs=5):
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 	testX, testLabelY, _, testY = getData("test_batch")
@@ -196,12 +196,12 @@ def randomSearch(mode = "coarseSearch"):
 	testX = testX - np.tile(mean, (1, testX.shape[1]))
 	tries = 0
 	while tries <150:
-		eta = np.random.uniform(low = 0.025, high = 0.07)
-		lambd = np.random.uniform(low=0.00005, high=0.002)
+		eta = np.random.uniform(low = etaLow, high = etaHigh)
+		lambd = np.random.uniform(low=lambdLow, high=lambdHigh)
 		network = TwoLayer([3072, 50, 10], trainX, trainY, validationX, validationY, eta, 100, regTerm=lambd, p = 0.9)
 		print("Eta: " + str(eta) + ", Lambda: " + str(lambd))
 
-		trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=20)
+		trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=epochs)
 		#plt.plot(trainAcc, label="train accuracy")
 		#plt.plot(valAcc, label="validation accuracy")
 		#plt.legend()
@@ -258,9 +258,12 @@ def findThreeBestFromCoarse(folder = "coarseSearch"):
 
 
 if __name__ == "__main__":
-	#findThreeBestFromCoarse("coarseSearch")
-	#randomSearch("fineSearch")
+	#findThreeBestFromCoarse("fineSearch")
+	#randomSearch("coarseSearch")
 
+	#0.03	0.0001
+	#0.03	0.00007
+	#0.04	0.0001
 	
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	trainX2, labelY2, labelNames2, trainY2 = getData("data_batch_2")
@@ -278,11 +281,26 @@ if __name__ == "__main__":
 	validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
 	testX = testX - np.tile(mean, (1, testX.shape[1]))
 	# PRETTY GOOD
-	eta = 0.03244093510324865
-	lambd = 0.00011369581140139731
+	eta = 0.019287721185986918
+	lambd = 6.865912979562136e-05
 	#
-	network = TwoLayer([3072, 50, 10], trainX, trainY, validationX[:,9000:-1], validationY[:,9000:-1], eta, 100, regTerm=lambd, p = 0.9, activationFunc = 'RELU')
-	trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=200, decayEta = False, earlyStopping = True)
+	bestAcc = 0
+	for i in range(1):
+		network = TwoLayer([3072, 50, 10], trainX, trainY, validationX[:,9000:-1], validationY[:,9000:-1], eta, 100, regTerm=lambd, p = 0.9, activationFunc = 'RELU')
+		trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=200, decayEta = True, earlyStopping = True)
+		newAcc = network.computeAccuracy(testX, testY)
+		if  newAcc > bestAcc:
+			bestAcc = newAcc
+		print(newAcc)
+
+
+
+	
+	
+
+
+
+	'''
 	plt.plot(trainLoss, label="train loss")
 	plt.plot(valLoss, label="validation loss")
 	plt.legend()
@@ -296,7 +314,7 @@ if __name__ == "__main__":
 	plt.ylabel("Accuracy")
 	plt.show()
 	print(network.computeAccuracy(testX, testY))
-	
+	'''
 
 
 
@@ -307,3 +325,7 @@ if __name__ == "__main__":
 #FINE SEARCH
 #eta (low = 0.025, high = 0.07)
 #lambda (low=0.00005, high=0.002)
+
+#48% accuracy all data, he, cross validation 50 noder
+# 45.29 % accuracy al data, he, cross validation, 300 noder
+# 51.25 % accuracy all data, he, cross validation

@@ -74,7 +74,7 @@ end=1
 trainX = trainX[:,0:end]
 trainY = trainY[:,0:end]
 
-network = lab2.TwoLayer([3072,50,10], trainX, trainY, validationX, validationY, 0.01, 100, regTerm=0.0, activationFunc = 'SIGM')
+network = lab2.TwoLayer([3072,50,10], trainX, trainY, validationX, validationY, 0.01, 100, regTerm=0.1, activationFunc = 'RELU')
 e = 1e-6
 
 grad_W1, grad_b1, grad_W2, grad_b2 = computeGradsNum(network, h=1e-6)
