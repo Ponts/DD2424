@@ -157,10 +157,10 @@ class TwoLayer():
 		g = np.dot(g.T,self.W2)
 		if self.activationFunc == 'RELU':
 			ind = np.where(S1>0,1,0)[:,0]
-			#print(g.shape, ind.shape)
 			g = np.dot(g,np.diag(ind)).T
 		elif self.activationFunc == 'SIGM':
-			g = np.dot(g,self.deltaSigmoid(h))
+			deltaSigm = self.deltaSigmoid(h)[:,0]
+			g = np.dot(g,np.diag(deltaSigm)).T
 		dldb1 = g
 		dldw1 = np.dot(g,x.T)
 		return dldw1, dldb1, dldw2, dldb2
@@ -269,8 +269,8 @@ if __name__ == "__main__":
 	trainX5, labelY5, labelNames5, trainY5 = getData("data_batch_5")
 	testX, testLabelY, _, testY = getData("test_batch")
 
-	trainX = np.concatenate((trainX, trainX2[:,0:9000], trainX3, trainX4, trainX5), axis=1)
-	trainY = np.concatenate((trainY, trainY2[:,0:9000], trainY3, trainY4, trainY5), axis=1)
+	#trainX = np.concatenate((trainX, trainX2[:,0:9000], trainX3, trainX4, trainX5), axis=1)
+	#trainY = np.concatenate((trainY, trainY2[:,0:9000], trainY3, trainY4, trainY5), axis=1)
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 
 	mean = getMean(trainX)
@@ -281,8 +281,8 @@ if __name__ == "__main__":
 	eta = 0.03244093510324865
 	lambd = 0.00011369581140139731
 	#
-	network = TwoLayer([3072, 50, 10], trainX, trainY, validationX[:,9000:-1], validationY[:,9000:-1], eta, 100, regTerm=lambd, p = 0.9, activationFunc = 'RELU')
-	trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=200, decayEta = False, earlyStopping = True)
+	network = TwoLayer([3072, 50, 10], trainX, trainY, validationX, validationY, eta, 100, regTerm=lambd, p = 0.9, activationFunc = 'SIGM')
+	trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=10, decayEta = True, earlyStopping = True)
 	plt.plot(trainLoss, label="train loss")
 	plt.plot(valLoss, label="validation loss")
 	plt.legend()
