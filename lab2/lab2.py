@@ -37,7 +37,7 @@ def getMean(X):
 	return np.mean(X,1).reshape(-1,1)
 
 class TwoLayer():
-	def __init__(self, setup, trainX, trainY, validationX, validationY, eta, batchSize = 200, regTerm = 0.1, p = 0.99, activationFunc = 'RELU'):
+	def __init__(self, setup, trainX, trainY, validationX, validationY, eta, batchSize = 200, regTerm = 0.1, p = 0.99, activationFunc = 'RELU', dropout = 0.0):
 		self.W1 = np.array([np.random.normal(0,2/setup[0]) for i in range(setup[0]*setup[1])]).reshape(setup[1],setup[0])
 		self.b1 = np.array([0.0 for i in range(setup[1])]).reshape(setup[1],1)
 		self.W2 = np.array([np.random.normal(0,2/setup[1]) for i in range(setup[1]*setup[2])]).reshape(setup[2],setup[1])
@@ -55,6 +55,7 @@ class TwoLayer():
 		self.W2V = np.array([0.0 for i in range(setup[1]*setup[2])]).reshape(setup[2],setup[1])
 		self.b2V = np.array([0.0 for i in range(setup[2])]).reshape(setup[2],1)
 		self.activationFunc = activationFunc
+		self.dropout = dropout
 
 
 	def evaluateClassifier(self, X):
@@ -149,17 +150,28 @@ class TwoLayer():
 	def calculateGradient(self, x, y):
 		S1 = self.getS1(x)
 		h = self.getH(S1)
+		hSave = np.copy(h)
+		if(self.dropout > 0.0):
+			#print(h.shape)
+			U = (np.random.rand(*h.shape) < self.dropout ) / self.dropout
+			h *= U
 		s2 = self.getS2(h)
 		P = self.getP(s2)
+
+		#backward
 		g = P - y
 		dldb2 = g
+		
 		dldw2 = np.dot(g,h.T)
 		g = np.dot(g.T,self.W2)
+		#print(g.shape, mask.shape)
+		if(self.dropout > 0.0):
+			g = g*U.T
 		if self.activationFunc == 'RELU':
 			ind = np.where(S1>0,1,0)[:,0]
 			g = np.dot(g,np.diag(ind)).T
 		elif self.activationFunc == 'SIGM':
-			deltaSigm = self.deltaSigmoid(h)[:,0]
+			deltaSigm = self.deltaSigmoid(hSave)[:,0]
 			g = np.dot(g,np.diag(deltaSigm)).T
 		dldb1 = g
 		dldw1 = np.dot(g,x.T)
@@ -186,7 +198,7 @@ class TwoLayer():
 			print(i)
 		return loss, valLoss, trainAcc, validAcc
 
-def randomSearch(mode = "coarseSearch", etaLow = 0.0025, etaHigh = 0.6, lambdLow = 0.00005, lambdHigh=0.002, epochs=5):
+def randomSearch(mode = "coarseSearch", etaLow = 0.0025, etaHigh = 0.6, lambdLow = 0.00005, lambdHigh=0.002, epochs=5, act = 'RELU'):
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 	testX, testLabelY, _, testY = getData("test_batch")
@@ -198,7 +210,7 @@ def randomSearch(mode = "coarseSearch", etaLow = 0.0025, etaHigh = 0.6, lambdLow
 	while tries <150:
 		eta = np.random.uniform(low = etaLow, high = etaHigh)
 		lambd = np.random.uniform(low=lambdLow, high=lambdHigh)
-		network = TwoLayer([3072, 50, 10], trainX, trainY, validationX, validationY, eta, 100, regTerm=lambd, p = 0.9)
+		network = TwoLayer([3072, 50, 10], trainX, trainY, validationX, validationY, eta, 100, regTerm=lambd, p = 0.9, activationFunc = act)
 		print("Eta: " + str(eta) + ", Lambda: " + str(lambd))
 
 		trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=epochs)
@@ -258,8 +270,8 @@ def findThreeBestFromCoarse(folder = "coarseSearch"):
 
 
 if __name__ == "__main__":
-	#findThreeBestFromCoarse("fineSearch")
-	#randomSearch("coarseSearch")
+	#findThreeBestFromCoarse("sigmCoarse")
+	#randomSearch("sigmCoarse", act='SIGM')
 
 	#0.03	0.0001
 	#0.03	0.00007
@@ -272,40 +284,38 @@ if __name__ == "__main__":
 	trainX5, labelY5, labelNames5, trainY5 = getData("data_batch_5")
 	testX, testLabelY, _, testY = getData("test_batch")
 
-	#trainX = np.concatenate((trainX, trainX2[:,0:9000], trainX3, trainX4, trainX5), axis=1)
-	#trainY = np.concatenate((trainY, trainY2[:,0:9000], trainY3, trainY4, trainY5), axis=1)
+	trainX = np.concatenate((trainX, trainX2[:,0:9000], trainX3, trainX4, trainX5), axis=1)
+	trainY = np.concatenate((trainY, trainY2[:,0:9000], trainY3, trainY4, trainY5), axis=1)
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 
 	mean = getMean(trainX)
 	trainX = trainX - np.tile(mean,(1,trainX.shape[1]))
 	validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
 	testX = testX - np.tile(mean, (1, testX.shape[1]))
-	# PRETTY GOOD
+	# PRETTY GOOD RELU
 	eta = 0.019287721185986918
 	lambd = 6.865912979562136e-05
+
+	# PRETTY GOOD SIGM
+	#eta = 0.12138310693958294
+	#lambd = 8.173206421831367e-05
 	#
+
 	bestAcc = 0
 	for i in range(1):
-		network = TwoLayer([3072, 50, 10], trainX, trainY, validationX[:,9000:-1], validationY[:,9000:-1], eta, 100, regTerm=lambd, p = 0.9, activationFunc = 'RELU')
-		trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=200, decayEta = True, earlyStopping = True)
+		network = TwoLayer([3072, 1000, 10], trainX, trainY, validationX[:,9000:-1], validationY[:,9000:-1], eta, 100, regTerm=lambd, p = 0.9, activationFunc = 'RELU', dropout=0.25)
+		trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=80, decayEta = True, earlyStopping = False)
 		newAcc = network.computeAccuracy(testX, testY)
 		if  newAcc > bestAcc:
 			bestAcc = newAcc
 		print(newAcc)
 
-
-
 	
-	
-
-
-
-	'''
 	plt.plot(trainLoss, label="train loss")
 	plt.plot(valLoss, label="validation loss")
 	plt.legend()
 	plt.xlabel("Epochs")
-	plt.ylabel("Accuracy")
+	plt.ylabel("Loss")
 	plt.show()
 	plt.plot(trainAcc, label="train accuracy")
 	plt.plot(valAcc, label="validation accuracy")
@@ -314,7 +324,7 @@ if __name__ == "__main__":
 	plt.ylabel("Accuracy")
 	plt.show()
 	print(network.computeAccuracy(testX, testY))
-	'''
+	
 
 
 
@@ -328,4 +338,8 @@ if __name__ == "__main__":
 
 #48% accuracy all data, he, cross validation 50 noder
 # 45.29 % accuracy al data, he, cross validation, 300 noder
+#47.19% all data, he, 300 noder, dropout
 # 51.25 % accuracy all data, he, cross validation
+
+# sigmoid
+# 47.81% accuracy he, cross validation 50 noder
