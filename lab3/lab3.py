@@ -174,10 +174,26 @@ class Network():
 			self.b[i] -= self.bV[i]
 
 	def batchNormBackPass(self, g, S, mu, v):
-		Vb = []
-		for b in range(len(v)):
-			Vb.append(np.diagflat(v[b] + self.e))
-		ds_idvb = -0.5 * np.dot(np.power(Vb,-(3/2)),np.diagflat(S - mu))
+		n = S.shape[1]
+		Vb = np.diagflat(v + self.e)
+		DS_Vb = np.empty((S.shape[0], S.shape[1]))
+		for i in range(n):
+			DS_Vb[:,i] = np.dot(-np.power(Vb,-3./2.),np.diag(S[:,i]-mu)) 
+		DJVb = np.zeros((S.shape[0],S.shape[1]))
+		for i in range(n):
+			DJVb += np.dot(g[i],DS_Vb[:,i])
+
+		powerd = np.power(-Vb,-0.5)
+		DJmu = np.dot(g,powerd).T
+		left = np.dot(g,np.power(Vb,-0.5)).T
+		
+		DJS_ = np.zeros((g.shape))
+		for i in range(n):
+			diag = np.diag(S[:,i] - mu)
+			middle = (0.5*n)*(np.dot(DJVb[:,i],diag))
+			DJS_[i] = (left[:,i] + middle + DJmu[:,i]*(1/n))
+
+		return DJS_
 
 
 
@@ -188,20 +204,28 @@ class Network():
 		S, S_, mu, v, h, P = self.forwardPass(x)
 		#backward
 		g = P - y
-
 		l = len(self.W)-1
 		while l >= 0:
 			djdb[l] = g
 			djdw[l] = np.dot(g,h[l].T)
 			g = np.dot(g.T,self.W[l])
-			#HERE SHOULD BATCH NORM GO
+			
 			if l > 0:
+				if self.useBatch:
+					s = S_[l-1]
+				else:
+					s = S[l-1]
 				if self.activationFunc == 'RELU':
-					ind = np.where(S[l-1]>0,1,0)
-
+					ind = np.where(s>0,1,0)
+				#HERE SHOULD BATCH NORM GO
 				for i in range(g.shape[0]):
 					g[i,:] = np.dot(g[i,:],np.diag(ind[:,i]))
+				
+				if self.useBatch:
+					g= self.batchNormBackPass(g,S[l-1],mu[l-1],v[l-1])
 				g = g.T
+				
+				
 			l-=1
 		
 		for i in range(len(djdw)):
@@ -253,10 +277,10 @@ if __name__ == "__main__":
 	#validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
 	#testX = testX - np.tile(mean, (1, testX.shape[1]))
 	# PRETTY GOOD RELU
-	eta = 0.001087721185986918
+	eta = 0.00025087721185986918
 	lambd = 6.865912979562136e-07
-	network = Network([3072, 50, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, useBatch = False)
-	loss, valLoss, trainAcc, validAcc = network.fit(epochs = 40, earlyStopping = False)
+	network = Network([3072, 50, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, useBatch = True)
+	loss, valLoss, trainAcc, validAcc = network.fit(epochs = 5, earlyStopping = False)
 
 	plt.plot(loss, label="train loss")
 	plt.plot(valLoss, label="validation loss")
