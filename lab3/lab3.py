@@ -40,8 +40,8 @@ class Network():
 	def __init__(self, setup, trainX, trainY, validationX, validationY, eta, batchSize = 200, regTerm = 0.1, p = 0.99, activationFunc = 'RELU', useBatch = False):
 		self.W = []
 		self.b = []
-		for i in range(len(setup)-1):
-			self.W.append( np.array([np.random.normal(0,2/setup[i]) for j in range(setup[i]*setup[i+1])]).reshape(setup[i+1],setup[i]))
+		for i in range(len(setup)-1):					#2/setup[i]
+			self.W.append( np.array([np.random.normal(0,2/setup[i]) for j in range(setup[i]*setup[i+1])]).reshape(setup[i+1],setup[i]))									
 			self.b.append( np.array([0.0 for i in range(setup[i+1])]).reshape(setup[i+1],1))
 		self.p = p
 		self.eta = eta
@@ -173,6 +173,14 @@ class Network():
 		for i in range(len(self.b)):
 			self.b[i] -= self.bV[i]
 
+	def batchNormBackPass(self, g, S, mu, v):
+		Vb = []
+		for b in range(len(v)):
+			Vb.append(np.diagflat(v[b] + self.e))
+		ds_idvb = -0.5 * np.dot(np.power(Vb,-(3/2)),np.diagflat(S - mu))
+
+
+
 
 	def calculateGradient(self, x, y):
 		djdw = [np.zeros((self.W[i].shape)) for i in range(len(self.W))]
@@ -230,24 +238,24 @@ if __name__ == "__main__":
 	#0.04	0.0001
 	
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
-	#trainX2, labelY2, labelNames2, trainY2 = getData("data_batch_2")
-	#trainX3, labelY3, labelNames3, trainY3 = getData("data_batch_3")
-	#trainX4, labelY4, labelNames4, trainY4 = getData("data_batch_4")
-	#trainX5, labelY5, labelNames5, trainY5 = getData("data_batch_5")
+	trainX2, labelY2, labelNames2, trainY2 = getData("data_batch_2")
+	trainX3, labelY3, labelNames3, trainY3 = getData("data_batch_3")
+	trainX4, labelY4, labelNames4, trainY4 = getData("data_batch_4")
+	trainX5, labelY5, labelNames5, trainY5 = getData("data_batch_5")
 	testX, testLabelY, _, testY = getData("test_batch")
 
-	#trainX = np.concatenate((trainX, trainX2[:,0:9000], trainX3, trainX4, trainX5), axis=1)
-	#trainY = np.concatenate((trainY, trainY2[:,0:9000], trainY3, trainY4, trainY5), axis=1)
+	trainX = np.concatenate((trainX, trainX2[:,0:9000], trainX3, trainX4, trainX5), axis=1)
+	trainY = np.concatenate((trainY, trainY2[:,0:9000], trainY3, trainY4, trainY5), axis=1)
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 
-	mean = getMean(trainX)
-	trainX = trainX - np.tile(mean,(1,trainX.shape[1]))
-	validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
-	testX = testX - np.tile(mean, (1, testX.shape[1]))
+	#mean = getMean(trainX)
+	#trainX = trainX - np.tile(mean,(1,trainX.shape[1]))
+	#validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
+	#testX = testX - np.tile(mean, (1, testX.shape[1]))
 	# PRETTY GOOD RELU
-	eta = 0.019287721185986918
-	lambd = 6.865912979562136e-05
-	network = Network([3072, 50, 50, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, useBatch = False)
+	eta = 0.001087721185986918
+	lambd = 6.865912979562136e-07
+	network = Network([3072, 50, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, useBatch = False)
 	loss, valLoss, trainAcc, validAcc = network.fit(epochs = 40, earlyStopping = False)
 
 	plt.plot(loss, label="train loss")
