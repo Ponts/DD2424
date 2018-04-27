@@ -179,9 +179,9 @@ class Network():
 		DS_Vb = np.empty((S.shape[0], S.shape[1]))
 		for i in range(n):
 			DS_Vb[:,i] = np.dot(-np.power(Vb,-3./2.),np.diag(S[:,i]-mu)) 
-		DJVb = np.zeros((S.shape[0],S.shape[1]))
-		for i in range(n):
-			DJVb += np.dot(g[i],DS_Vb[:,i])
+		DJVb = g * DS_Vb.T
+		#for i in range(n):
+		#	DJVb += np.dot(g[i],DS_Vb[:,i])
 
 		powerd = np.power(-Vb,-0.5)
 		DJmu = np.dot(g,powerd).T
@@ -190,7 +190,7 @@ class Network():
 		DJS_ = np.zeros((g.shape))
 		for i in range(n):
 			diag = np.diag(S[:,i] - mu)
-			middle = (0.5*n)*(np.dot(DJVb[:,i],diag))
+			middle = (0.5*n)*(np.dot(DJVb[i],diag))
 			DJS_[i] = (left[:,i] + middle + DJmu[:,i]*(1/n))
 
 		return DJS_
