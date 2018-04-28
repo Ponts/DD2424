@@ -176,15 +176,15 @@ class Network():
 	def batchNormBackPass(self, g, S, mu, v):
 		n = S.shape[1]
 		Vb = np.diagflat(v + self.e)
-		DS_Vb = np.empty((S.shape[0], S.shape[1]))
+		DS_Vb = np.empty((S.shape[1], S.shape[0]))
 		for i in range(n):
-			DS_Vb[:,i] = np.dot(-np.power(Vb,-3./2.),np.diag(S[:,i]-mu)) 
-		DJVb = g * DS_Vb.T
+			DS_Vb[i] = np.dot(-np.power(Vb,-3./2.),np.diag(S[:,i]-mu)) 
+		DJVb = g * DS_Vb
 		#for i in range(n):
 		#	DJVb += np.dot(g[i],DS_Vb[:,i])
 
 		powerd = np.power(-Vb,-0.5)
-		DJmu = np.dot(g,powerd).T
+		DJmu = g * powerd.T   # FEL!
 		left = np.dot(g,np.power(Vb,-0.5)).T
 		
 		DJS_ = np.zeros((g.shape))
