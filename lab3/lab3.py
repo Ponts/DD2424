@@ -37,12 +37,12 @@ def getMean(X):
 	return np.mean(X,1).reshape(-1,1)
 
 class Network():
-	def __init__(self, setup, trainX, trainY, validationX, validationY, eta, batchSize = 200, regTerm = 0.1, p = 0.99, activationFunc = 'RELU', useBatch = False):
+	def __init__(self, setup, trainX, trainY, validationX, validationY, eta, batchSize = 200, regTerm = 0.1, p = 0.99, activationFunc = 'RELU', useBatch = False, alpha=0.99):
 		self.W = []
 		self.b = []
 		for i in range(len(setup)-1):					#2/setup[i]
-			self.W.append( np.array([np.random.normal(0,2/setup[i]) for j in range(setup[i]*setup[i+1])]).reshape(setup[i+1],setup[i]))									
-			self.b.append( np.array([0.0 for i in range(setup[i+1])]).reshape(setup[i+1],1))
+			self.W.append( np.array([np.random.normal(0,2/setup[i]) for k in range(setup[i]*setup[i+1])]).reshape(setup[i+1],setup[i]))									
+			self.b.append( np.array([0.0 for k in range(setup[i+1])]).reshape(setup[i+1],1))
 		self.p = p
 		self.eta = eta
 		self.batchSize = batchSize
@@ -54,13 +54,19 @@ class Network():
 		self.WV = []
 		self.bV = []
 		for i in range(len(setup)-1):
-			self.WV.append( np.array([0.0 for i in range(setup[i]*setup[i+1])]).reshape(setup[i+1],setup[i]))
-			self.bV.append(np.array([0.0 for i in range(setup[i+1])]).reshape(setup[i+1],1))
+			self.WV.append( np.array([0.0 for k in range(setup[i]*setup[i+1])]).reshape(setup[i+1],setup[i]))
+			self.bV.append(np.array([0.0 for k in range(setup[i+1])]).reshape(setup[i+1],1))
 		self.e = 1e-5
 		self.activationFunc = activationFunc
 		self.useBatch = useBatch
+		self.muav = []
+		self.vav = []
+		for l in range(1,len(setup)-1):
+			self.muav.append( np.zeros((setup[l],1) ))
+			self.vav.append(   np.zeros((setup[l],1) )) 
+		self.alpha = alpha
 
-	def forwardPass(self, X):
+	def forwardPass(self, X, first = False):
 		S = []
 		S_ = []
 		h = []
@@ -75,6 +81,12 @@ class Network():
 			S_.append(self.BatchNormalize(S[l],mul,vl,l))
 			if self.useBatch:
 				s = S_[l]
+				if first:
+					self.muav[l] = mul
+					self.vav[l] = vl
+				else:
+					self.muav[l] = self.alpha * self.muav[l] + (1.-self.alpha)*mul
+					self.vav[l] = self.alpha * self.vav[l] + (1.-self.alpha)*vl
 			else:
 				s = S[l]
 			if self.activationFunc == 'RELU':
@@ -152,11 +164,11 @@ class Network():
 
 
 
-	def updateWithBatch(self, X, Y):
+	def updateWithBatch(self, X, Y, first):
 		djdw = [np.zeros((self.W[i].shape)) for i in range(len(self.W))]
 		djdb = [np.zeros(self.b[i].shape) for i in range(len(self.b))]
 		
-		addjdw, addjdb = self.calculateGradient(X,Y)
+		addjdw, addjdb = self.calculateGradient(X,Y, first)
 		for i in range(len(djdw)):
 			djdw[i]+=addjdw[i]
 			djdb[i]+=addjdb[i]
@@ -166,11 +178,8 @@ class Network():
 
 		for i in range(len(self.WV)):
 			self.WV[i] = self.p * self.WV[i] + self.eta*djdw[i] + 2*self.regTerm*self.W[i]
-		for i in range(len(self.bV)):
 			self.bV[i] = self.p * self.bV[i] + self.eta*djdb[i]
-		for i in range(len(self.W)):
 			self.W[i] -= self.WV[i]
-		for i in range(len(self.b)):
 			self.b[i] -= self.bV[i]
 
 	def batchNormBackPass(self, g, S, mu, v):
@@ -207,10 +216,10 @@ class Network():
 
 
 
-	def calculateGradient(self, x, y):
+	def calculateGradient(self, x, y, first):
 		djdw = [np.zeros((self.W[i].shape)) for i in range(len(self.W))]
 		djdb = [np.zeros(self.b[i].shape) for i in range(len(self.b))]
-		S, S_, mu, v, h, P = self.forwardPass(x)
+		S, S_, mu, v, h, P = self.forwardPass(x, first)
 		#backward
 		g = P - y
 		l = len(self.W)-1
@@ -246,6 +255,7 @@ class Network():
 		valLoss = []
 		trainAcc = []
 		validAcc = []
+		first = True
 		for i in range(epochs):
 			loss.append(self.computeCost(self.trainX, self.trainY))
 			valLoss.append(self.computeCost(self.validationX, self.validationY))
@@ -256,7 +266,8 @@ class Network():
 			for j in range(1,int(len(self.trainX.T)/self.batchSize)+1):
 				jStart = (j-1)*self.batchSize
 				jEnd = j * self.batchSize
-				self.updateWithBatch(self.trainX[:,jStart:jEnd], self.trainY[:,jStart:jEnd])
+				self.updateWithBatch(self.trainX[:,jStart:jEnd], self.trainY[:,jStart:jEnd], first)
+				first = False
 			if decayEta and i % 10 == 0:
 				self.eta = self.eta*0.95
 			print(i)
