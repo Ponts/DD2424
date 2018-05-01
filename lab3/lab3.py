@@ -66,6 +66,7 @@ class Network():
 			self.muav.append( np.zeros((setup[l],1) ))
 			self.vav.append(   np.zeros((setup[l],1) )) 
 		self.alpha = alpha
+		self.first = True
 
 	def forwardPass(self, X):
 		S = []
@@ -80,9 +81,9 @@ class Network():
 				mul, vl = self.calculateNormalize(S[l])
 				mu.append(mul)
 				v.append(vl)
+
 				S_.append(self.BatchNormalize(S[l],mul,vl))
 				s = S_[l]
-				
 			else:
 				s = S[l]
 			if self.activationFunc == 'RELU':
@@ -174,18 +175,17 @@ class Network():
 			total += np.sum(W**2)
 		return self.regTerm*total
 
-	def updateWithBatch(self, X, Y, first):
+	def updateWithBatch(self, X, Y):
 		djdw = [np.zeros((self.W[i].shape)) for i in range(len(self.W))]
 		djdb = [np.zeros(self.b[i].shape) for i in range(len(self.b))]
 		
-		addjdw, addjdb = self.calculateGradient(X,Y, first)
+		addjdw, addjdb = self.calculateGradient(X,Y)
 		for i in range(len(djdw)):
 			djdw[i]+=addjdw[i]
 			djdb[i]+=addjdb[i]
 		for i in range(len(djdw)):
 			djdw[i]/=X.shape[1]
 			djdb[i]/=X.shape[1]
-		#print(djdw[0][0][0])
 		for i in range(len(self.WV)):
 			self.WV[i] = self.p * self.WV[i] + self.eta*djdw[i] + 2*self.regTerm*self.W[i]
 			self.bV[i] = self.p * self.bV[i] + self.eta*djdb[i]
@@ -205,11 +205,11 @@ class Network():
 		gradMu = - np.sum(gVgSq, axis=1).reshape(-1,1)
 		return gVgSq + (2/n) * np.multiply(gradVar, sMu) + gradMu/n
 
-	def calculateGradient(self, x, y, first):
+	def calculateGradient(self, x, y):
 		djdw = [np.zeros((self.W[i].shape)) for i in range(len(self.W))]
 		djdb = [np.zeros(self.b[i].shape) for i in range(len(self.b))]
 		S, S_, mu, v, h, P = self.forwardPass(x)
-		if first and self.useBatch:
+		if self.first and self.useBatch:
 			self.muav = copy.deepcopy(mu)
 			self.vav = copy.deepcopy(v)
 		elif self.useBatch:
@@ -245,7 +245,7 @@ class Network():
 		valLoss = []
 		trainAcc = []
 		validAcc = []
-		first = True
+		self.first = True
 		for i in range(epochs):
 			loss.append(self.computeCost(self.trainX, self.trainY))
 			valLoss.append(self.computeCost(self.validationX, self.validationY))
@@ -256,8 +256,8 @@ class Network():
 			for j in range(1,int(len(self.trainX.T)/self.batchSize)+1):
 				jStart = (j-1)*self.batchSize
 				jEnd = j * self.batchSize
-				self.updateWithBatch(self.trainX[:,jStart:jEnd], self.trainY[:,jStart:jEnd], first)
-				first = False
+				self.updateWithBatch(self.trainX[:,jStart:jEnd], self.trainY[:,jStart:jEnd])
+				self.first = False
 				
 			if decayEta and i % 10 == 0:
 				self.eta = self.eta*0.95
@@ -279,18 +279,21 @@ if __name__ == "__main__":
 	trainX5, labelY5, labelNames5, trainY5 = getData("data_batch_5")
 	testX, testLabelY, _, testY = getData("test_batch")
 
+	
+
+	validationX, valLabelY, _, validationY = getData("data_batch_2")
+	validationX = validationX[:,9000:]
+	validationY = validationY[:,9000:]
 	trainX = np.concatenate((trainX, trainX2[:,0:9000], trainX3, trainX4, trainX5), axis=1)
 	trainY = np.concatenate((trainY, trainY2[:,0:9000], trainY3, trainY4, trainY5), axis=1)
-	validationX, valLabelY, _, validationY = getData("data_batch_2")
-
 	mean = getMean(trainX)
 	trainX = trainX - np.tile(mean,(1,trainX.shape[1]))
 	validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
 	testX = testX - np.tile(mean, (1, testX.shape[1]))
 	# PRETTY GOOD RELU
 	eta = 0.00001
-	lambd = 0.0000000001
-	network = Network([3072, 500, 250, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, useBatch = True)
+	lambd = 0.000000000
+	network = Network([3072, 50, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, activationFunc='RELU', useBatch = False)
 	loss, valLoss, trainAcc, validAcc = network.fit(epochs = 50, earlyStopping = True)
 
 	plt.plot(loss, label="train loss")

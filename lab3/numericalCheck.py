@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 import lab2
 
 def computeGradsNum(network, h=1e-5):
@@ -10,7 +11,7 @@ def computeGradsNum(network, h=1e-5):
 
 	c = network.computeCost(network.trainX, network.trainY)
 
-	started_b = np.copy(network.b1)
+	started_b = copy.deepcopy(network.b1)
 	for i in range(len(network.b1)):
 		b_try = np.copy(started_b)
 		b_try[i] = b_try[i] + h
