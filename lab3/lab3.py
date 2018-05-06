@@ -125,8 +125,11 @@ class Network():
 				acc+=1
 		return (acc/Y.shape[1])*100
 
-	def computeCost(self,X, Y):
-		P = self.testPass(X)
+	def computeCost(self,X, Y, num = False):
+		if num:
+			S, S_, mu, v, h, P = self.forwardPass(X)
+		else:
+			P = self.testPass(X)
 		L = self.getL(P,Y)
 		L /= X.shape[1]
 		J = self.getJ(L)
@@ -264,14 +267,86 @@ class Network():
 			print(i)
 		return loss, valLoss, trainAcc, validAcc
 
-if __name__ == "__main__":
-	#findThreeBestFromCoarse("sigmCoarse")
-	#randomSearch("sigmCoarse", act='SIGM')
 
+def drawLog(low=-6, high=-1):
+	exp = np.power(10.,np.random.randint(low, high))
+	factor = np.random.randint(1,10)
+	return exp*factor
+
+def randomSearch(mode = "coarseSearch", etaLow = 0.000025, etaHigh = 0.03, lambdLow = 0.00000, lambdHigh=0.002, epochs=5, act = 'RELU'):
+	trainX, labelY, labelNames, trainY = getData("data_batch_1")
+	validationX, valLabelY, _, validationY = getData("data_batch_2")
+	testX, testLabelY, _, testY = getData("test_batch")
+	tries = 0
+	while tries <150:
+		eta = drawLog(-7,-1)
+		lambd = drawLog(-10,-5)
+		if tries % 10 == 0:
+			lambd = 0.
+		network = Network([3072, 50, 30, 10], trainX, trainY, validationX, validationY, eta, 100, regTerm=lambd, p = 0.9, activationFunc = act, useBatch=True)
+		print("Eta: " + str(eta) + ", Lambda: " + str(lambd))
+
+		trainLoss, valLoss, trainAcc, valAcc = network.fit(epochs=epochs)
+		#plt.plot(trainAcc, label="train accuracy")
+		#plt.plot(valAcc, label="validation accuracy")
+		#plt.legend()
+		#plt.xlabel("Epochs")
+		#plt.ylabel("Accuracy")
+		#plt.show()
+		testAcc = network.computeAccuracy(testX, testY)
+		print(testAcc)
+		valAccDone = network.computeAccuracy(validationX, validationY)
+		print(valAccDone)
+		#print(trainAcc[-1])
+		result = {'ValAccDone' : valAccDone, 'trainAccDone' :  trainAcc, 'eta' : eta, 'lambda' : lambd, 'trainLoss' : trainLoss, 'valLoss' : valLoss, 'trainAccuracy' : trainAcc, 'valAccuracy' : valAcc}
+		pd.DataFrame([result]).to_csv(mode + '/eta_' + str(eta) + '_lambda_' +str(lambd) + '.csv',  header=True)
+		tries += 1
+
+def findThreeBestFromCoarse(folder = "coarseSearch"):
+	path =r'D:\\DD2424\\lab3\\' + folder
+	allFiles = glob.glob(path + "/*.csv")
+	frame = pd.DataFrame()
+	list_ = []
+	for file_ in allFiles:
+	    df = pd.read_csv(file_,index_col=None)#, header=0)
+	    list_.append(df)
+	if len(list_)==0:
+		print("No files in folder " + str(path))
+		return
+	frame = pd.concat(list_)
+	nr = 3
+	bestThree = [0.0] * nr
+	bestThreeI = [0] * nr
+	index = 0
+	for _, row in frame.iterrows():
+		withHypers = np.max(eval(row['valAccuracy']))
+		for i in range(len(bestThree)):
+			if withHypers > bestThree[i]:
+				bestThree = bestThree[:i] + [withHypers] + bestThree[i:-1]
+				bestThreeI = bestThreeI[:i] + [index] + bestThreeI[i:-1]
+				break
+		index+=1
+	print(bestThreeI)
+	print("BestSettings:")
+	for index in bestThreeI:
+		print(frame.eta.values[index], frame['lambda'].values[index], frame['ValAccDone'].values[index])
+	for index in bestThreeI:
+		plt.plot(eval(frame.valAccuracy.values[index]), label="eta:" + str(frame.eta.values[index]) + " lambda: " + str(frame['lambda'].values[index]))
+		#plt.plot(eval(frame.valLoss.values[index]), label = "validation loss")
+		
+	plt.legend()
+	plt.show()
+	print("Validation Accuracy: ")
+	for index in bestThreeI:
+		print(np.max(eval(frame.valAccuracy.values[index])))
+
+if __name__ == "__main__":
+	#findThreeBestFromCoarse("3layerCoarse")
+	randomSearch("3layerCoarse", act='RELU')
 	#0.03	0.0001
 	#0.03	0.00007
 	#0.04	0.0001
-	
+	'''
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	trainX2, labelY2, labelNames2, trainY2 = getData("data_batch_2")
 	trainX3, labelY3, labelNames3, trainY3 = getData("data_batch_3")
@@ -291,10 +366,10 @@ if __name__ == "__main__":
 	validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
 	testX = testX - np.tile(mean, (1, testX.shape[1]))
 	# PRETTY GOOD RELU
-	eta = 0.00001
+	eta = 0.0001
 	lambd = 0.000000000
-	network = Network([3072, 50, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, activationFunc='RELU', useBatch = False)
-	loss, valLoss, trainAcc, validAcc = network.fit(epochs = 50, earlyStopping = True)
+	network = Network([3072, 700, 500, 558, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, activationFunc='RELU', useBatch = False)
+	loss, valLoss, trainAcc, validAcc = network.fit(epochs = 50, earlyStopping = False)
 
 	plt.plot(loss, label="train loss")
 	plt.plot(valLoss, label="validation loss")
@@ -310,3 +385,4 @@ if __name__ == "__main__":
 	plt.grid(True)
 	plt.show()
 	print(network.computeAccuracy(testX, testY))
+	'''
