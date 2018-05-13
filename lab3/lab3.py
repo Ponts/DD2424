@@ -273,14 +273,16 @@ def drawLog(low=-6, high=-1):
 	factor = np.random.randint(1,10)
 	return exp*factor
 
-def randomSearch(mode = "coarseSearch", etaLow = 0.000025, etaHigh = 0.03, lambdLow = 0.00000, lambdHigh=0.002, epochs=5, act = 'RELU'):
+def randomSearch(mode = "coarseSearch", etaLow = 0.005, etaHigh = 0.07, lambdLow = 0, lambdHigh=1e-7, epochs=5, act = 'RELU'):
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 	testX, testLabelY, _, testY = getData("test_batch")
 	tries = 0
 	while tries <150:
-		eta = drawLog(-7,-1)
-		lambd = drawLog(-10,-5)
+		#eta = drawLog(-7,-1)
+		#lambd = drawLog(-10,-5)
+		eta = np.random.uniform(etaLow, etaHigh)
+		lambd = np.random.uniform(lambdLow, lambdHigh)
 		if tries % 10 == 0:
 			lambd = 0.
 		network = Network([3072, 50, 30, 10], trainX, trainY, validationX, validationY, eta, 100, regTerm=lambd, p = 0.9, activationFunc = act, useBatch=True)
@@ -341,12 +343,12 @@ def findThreeBestFromCoarse(folder = "coarseSearch"):
 		print(np.max(eval(frame.valAccuracy.values[index])))
 
 if __name__ == "__main__":
-	#findThreeBestFromCoarse("3layerCoarse")
-	randomSearch("3layerCoarse", act='RELU')
+	#findThreeBestFromCoarse("3layerFineSearch")
+	#randomSearch("3layerFineSearch", act='RELU', epochs=10)
 	#0.03	0.0001
 	#0.03	0.00007
 	#0.04	0.0001
-	'''
+	
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	trainX2, labelY2, labelNames2, trainY2 = getData("data_batch_2")
 	trainX3, labelY3, labelNames3, trainY3 = getData("data_batch_3")
@@ -361,15 +363,15 @@ if __name__ == "__main__":
 	validationY = validationY[:,9000:]
 	trainX = np.concatenate((trainX, trainX2[:,0:9000], trainX3, trainX4, trainX5), axis=1)
 	trainY = np.concatenate((trainY, trainY2[:,0:9000], trainY3, trainY4, trainY5), axis=1)
-	mean = getMean(trainX)
-	trainX = trainX - np.tile(mean,(1,trainX.shape[1]))
-	validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
-	testX = testX - np.tile(mean, (1, testX.shape[1]))
+	#mean = getMean(trainX)
+	#trainX = trainX - np.tile(mean,(1,trainX.shape[1]))
+	#validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
+	#testX = testX - np.tile(mean, (1, testX.shape[1]))
 	# PRETTY GOOD RELU
-	eta = 0.0001
-	lambd = 0.000000000
-	network = Network([3072, 700, 500, 558, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, activationFunc='RELU', useBatch = False)
-	loss, valLoss, trainAcc, validAcc = network.fit(epochs = 50, earlyStopping = False)
+	eta = 0.035084277925012605 
+	lambd = 5.0549480544827314e-08
+	network = Network([3072, 700, 500, 500, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, activationFunc='RELU', useBatch = True)
+	loss, valLoss, trainAcc, validAcc = network.fit(epochs = 200, earlyStopping = False)
 
 	plt.plot(loss, label="train loss")
 	plt.plot(valLoss, label="validation loss")
@@ -385,4 +387,5 @@ if __name__ == "__main__":
 	plt.grid(True)
 	plt.show()
 	print(network.computeAccuracy(testX, testY))
-	'''
+	print(np.max(validAcc))
+	

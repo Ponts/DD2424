@@ -7,7 +7,7 @@ def computeGradsNum(network, h=1e-5):
 	grad_W = [np.zeros((network.W[i].shape)) for i in range(len(network.W))]
 	grad_b = [np.zeros(network.b[i].shape) for i in range(len(network.b))]
 
-	c = network.computeCost(network.trainX, network.trainY)
+	c = network.computeCost(network.trainX, network.trainY, num=network.useBatch)
 
 	for l in range(len(network.b)):
 		started_b = copy.deepcopy(network.b[l])
@@ -15,7 +15,7 @@ def computeGradsNum(network, h=1e-5):
 			b_try = np.copy(started_b)
 			b_try[i] = b_try[i] + h
 			network.b[l] = np.copy(b_try)
-			c2 = network.computeCost(network.trainX, network.trainY, num=True)
+			c2 = network.computeCost(network.trainX, network.trainY, num=network.useBatch)
 			grad_b[l][i] = (c2-c)/h
 			network.b[l][i] = np.copy(started_b[i])
 		network.b[l] = started_b
@@ -28,7 +28,7 @@ def computeGradsNum(network, h=1e-5):
 				W_try = np.copy(started_W)
 				W_try[i][j] = W_try[i][j] + h
 				network.W[l] = np.copy(W_try)
-				c2 = network.computeCost(network.trainX, network.trainY, num=True)
+				c2 = network.computeCost(network.trainX, network.trainY, num=network.useBatch)
 				grad_W[l][i][j] = (c2-c)/h
 				network.W[l][i][j] = np.copy(started_W[i][j])
 			print(i)
@@ -44,12 +44,12 @@ mean = lab3.getMean(trainX)
 trainX = trainX - np.tile(mean,(1,trainX.shape[1]))
 validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
 testX = testX - np.tile(mean, (1, testX.shape[1]))
-end=1
+end=3
 trainX = trainX[:,0:end]
 trainY = trainY[:,0:end]
 eta = 0.1
 lambd = 0
-network = network = lab3.Network([3072, 50, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, activationFunc='RELU', useBatch = True)
+network = network = lab3.Network([3072, 50, 50, 30, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, activationFunc='RELU', useBatch = True)
 for l in range(len(network.muav)):
 	network.muav[l] = ( np.zeros(network.muav[l].shape ))
 	network.vav[l] = (   np.zeros(network.vav[l].shape )) 
@@ -76,18 +76,14 @@ for l in range(len(djdw)):
 	djdw[l]/=trainX.shape[1]
 	djdb[l]/=trainX.shape[1]
 
-for l in range(len(network.W)):
-	print("--------")
-	print(np.max(djdw[l]))
-	print(np.min(djdw[l]))
 
 for l in range(len(network.W)):
 	analW.append( djdw[l] + 2*network.regTerm*network.W[l])
 	analB.append(djdb[l])
 print("W")
 for l in range(len(network.W)):
-	print(np.min((abs(analW[l] - grad_W[l])) / np.clip((abs(grad_W[l]) + abs(analW[l])), a_min=e, a_max=5000)))
+	print(np.max((abs(analW[l] - grad_W[l])) / np.clip((abs(grad_W[l]) + abs(analW[l])), a_min=e, a_max=5000)))
 print("B")
 for l in range(len(network.b)):
-	print(np.min((abs(analB[l] - grad_b[l])) / np.clip((abs(grad_b[l]) + abs(analB[l])), a_min=e, a_max=5000)))
+	print(np.max((abs(analB[l] - grad_b[l])) / np.clip((abs(grad_b[l]) + abs(analB[l])), a_min=e, a_max=5000)))
 
