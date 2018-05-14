@@ -42,8 +42,8 @@ class Network():
 		self.W = []
 		self.b = []
 		for i in range(len(setup)-1):					#2/setup[i]
-			self.W.append( np.array([np.random.normal(0,2/setup[i]) for k in range(setup[i]*setup[i+1])]).reshape(setup[i+1],setup[i]))									
-			self.b.append( np.array([0.0 for k in range(setup[i+1])]).reshape(setup[i+1],1))
+			self.W.append( np.array([np.random.normal(0,2/setup[i]) for k in range(setup[i]*setup[i+1])],dtype=np.float64).reshape(setup[i+1],setup[i]))									
+			self.b.append( np.array([0.0 for k in range(setup[i+1])], dtype=np.float64).reshape(setup[i+1],1))
 		self.p = p
 		self.eta = eta
 		self.batchSize = batchSize
@@ -55,8 +55,8 @@ class Network():
 		self.WV = []
 		self.bV = []
 		for i in range(len(setup)-1):
-			self.WV.append( np.array([0.0 for k in range(setup[i]*setup[i+1])]).reshape(setup[i+1],setup[i]))
-			self.bV.append(np.array([0.0 for k in range(setup[i+1])]).reshape(setup[i+1],1))
+			self.WV.append( np.array([0.0 for k in range(setup[i]*setup[i+1])], dtype=np.float64).reshape(setup[i+1],setup[i]))
+			self.bV.append(np.array([0.0 for k in range(setup[i+1])], dtype=np.float64).reshape(setup[i+1],1))
 		self.e = 1e-5
 		self.activationFunc = activationFunc
 		self.useBatch = useBatch
@@ -236,7 +236,7 @@ class Network():
 					ind = np.where(s>0.,1.,0.)
 				g = np.multiply(g,ind)
 				if self.useBatch:
-					g= self.batchNormBackPass(g,S[l-1],mu[l-1],v[l-1])
+					g = self.batchNormBackPass(g,S[l-1],mu[l-1],v[l-1])
 			l-=1
 		
 		for i in range(len(djdw)):
