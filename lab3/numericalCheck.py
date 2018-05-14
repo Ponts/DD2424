@@ -40,7 +40,7 @@ def computeGradsNumSlow(network, h=1e-6):
 	grad_b = [np.zeros(network.b[i].shape) for i in range(len(network.b))]
 
 	for l in range(len(network.b)):
-		started_b = copy.deepcopy(network.b[l])
+		started_b = copy.copy(network.b[l])
 		for i in range(len(network.b[l])):
 			b_try = np.copy(started_b)
 			b_try[i] = b_try[i] - h
