@@ -88,11 +88,11 @@ end=3
 trainX = trainX[:,0:end]
 trainY = trainY[:,0:end]
 eta = 0.1
-lambd = 0.
-network = network = lab3.Network([3072, 50, 50, 30, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, activationFunc='RELU', useBatch = True)
+lambd = 0.0
+network = network = lab3.Network([3072, 50, 30, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, activationFunc='RELU', useBatch = True)
 for l in range(len(network.muav)):
-	network.muav[l] = ( np.zeros(network.muav[l].shape ))
-	network.vav[l] = (   np.zeros(network.vav[l].shape )) 
+	network.muav[l] = (np.zeros(network.muav[l].shape))
+	network.vav[l] = (np.zeros(network.vav[l].shape)) 
 e = 1e-6
 
 grad_W, grad_b = computeGradsNumSlow(network, h=1e-6)
@@ -118,10 +118,7 @@ for l in range(len(network.W)):
 	analW.append( djdw[l] + 2*network.regTerm*network.W[l])
 	analB.append(djdb[l])
 
-for l in range(len(network.W)):
-	print("-----")
-	print(np.max(grad_W[l]))
-	print(np.max(analW[l]))
+
 print("W")
 for l in range(len(network.W)):
 	print(np.max((abs(analW[l] - grad_W[l])) / np.clip((abs(grad_W[l]) + abs(analW[l])), a_min=e, a_max=5000)))

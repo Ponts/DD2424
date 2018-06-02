@@ -7,6 +7,15 @@ import glob
 import copy
 filepath = "cifar-10-batches-py/"
 
+def noise(pic, noiselvl = 0.001):
+	nojs = np.random.normal(0,0.01, size=pic.shape).reshape(pic.shape[0],pic.shape[1])
+	return np.clip(pic + nojs,0.,1.)
+
+def rotate(pic):
+	reshaped = pic.reshape(3,32,32,-1)
+	return np.rot90(reshaped,2,(1,2)).reshape(3072,-1)
+
+
 def unpickle(file):
 	import pickle
 	with open(filepath + file, 'rb') as fo:
@@ -32,13 +41,14 @@ def plotImage(x,name=""):
 	x = x.reshape(3,32,32).transpose([1, 2, 0])
 	plt.imshow(x, interpolation='gaussian')
 	plt.title(name)
+
 	plt.show()
 
 def getMean(X):
 	return np.mean(X,1).reshape(-1,1)
 
 class Network():
-	def __init__(self, setup, trainX, trainY, validationX, validationY, eta, batchSize = 200, regTerm = 0.1, p = 0.99, activationFunc = 'RELU', useBatch = False, alpha=0.99):
+	def __init__(self, setup, trainX, trainY, validationX, validationY, eta, batchSize = 200, regTerm = 0.1, p = 0.99, activationFunc = 'RELU', useBatch = False, alpha=0.99, augmentData = False, dropout=0.):
 		self.W = []
 		self.b = []
 		for i in range(len(setup)-1):					#2/setup[i]
@@ -67,6 +77,8 @@ class Network():
 			self.vav.append(   np.zeros((setup[l],1) )) 
 		self.alpha = alpha
 		self.first = True
+		self.augmentData = augmentData
+		self.dropout = dropout
 
 	def forwardPass(self, X):
 		S = []
@@ -90,6 +102,8 @@ class Network():
 				h.append(self.relu(s))
 			elif self.activationFunc == 'SIGM':
 				h.append(self.sigmoid(s))
+			elif self.activationFunc == 'TANH':
+				h.append(self.tanh(s))
 
 		S.append(np.dot(self.W[-1],h[-1]) + self.b[-1])
 		return S, S_, mu, v, h, self.getP(S[-1])
@@ -110,6 +124,8 @@ class Network():
 				h.append(self.relu(s))
 			elif self.activationFunc == 'SIGM':
 				h.append(self.sigmoid(s))
+			elif self.activationFunc == 'TANH':
+				h.append(self.tanh(s))
 		S.append(np.dot(self.W[-1],h[-1]) + self.b[-1])
 		return self.getP(S[-1])
 
@@ -142,6 +158,14 @@ class Network():
 	def deltaSigmoid(self, X):
 		return X * (1-X)
 
+	def tanh(self, X):
+		nexp = np.exp(X)
+		mexp = np.exp(-X)
+		return (nexp - mexp)/(nexp + mexp)
+
+	def deltatanh(self, X):
+		return 1 - np.power(X,2)
+
 	def relu(self, h):
 		return  np.where(h>0,h,0)
 
@@ -160,7 +184,10 @@ class Network():
 	def getP(self,S2):
 		P = np.zeros((S2.shape[0],S2.shape[1]))
 		for c in range(len(S2.T)):
-			P[:,c] = np.exp(S2[:,c])/np.sum(np.exp(S2[:,c]))
+			maxx = np.max(S2[:,c])
+			row = S2[:,c] - maxx
+			suma = np.sum(np.exp(row))
+			P[:,c] = np.exp(row)/suma
 		return P
 
 	def getL(self, P, Y):
@@ -181,7 +208,7 @@ class Network():
 	def updateWithBatch(self, X, Y):
 		djdw = [np.zeros((self.W[i].shape)) for i in range(len(self.W))]
 		djdb = [np.zeros(self.b[i].shape) for i in range(len(self.b))]
-		
+
 		addjdw, addjdb = self.calculateGradient(X,Y)
 		for i in range(len(djdw)):
 			djdw[i]+=addjdw[i]
@@ -220,13 +247,19 @@ class Network():
 				self.muav[l] = self.alpha * self.muav[l] + (1.-self.alpha)*mu[l]
 				self.vav[l] = self.alpha * self.vav[l] + (1.-self.alpha)*v[l]
 		#backward
+		if self.dropout > 0.:
+			#print(h.shape)
+			U = (np.random.rand(*h[-1].shape) < self.dropout ) / self.dropout
+			h[-1] *= U
+
 		g = P - y
 		l = len(self.W)-1
 		while l >= 0:
 			djdb[l] = g
 			djdw[l] = np.dot(g,h[l].T)
 			g = np.dot(self.W[l].T,g)
-			
+			if self.dropout > 0. and l == len(self.W)-1:
+				g = g*U
 			if l > 0:
 				if self.useBatch:
 					s = S_[l-1]
@@ -234,6 +267,8 @@ class Network():
 					s = S[l-1]
 				if self.activationFunc == 'RELU':
 					ind = np.where(s>0.,1.,0.)
+				elif self.activationFunc == 'TANH':
+					ind = self.deltatanh(h[l])
 				g = np.multiply(g,ind)
 				if self.useBatch:
 					g = self.batchNormBackPass(g,S[l-1],mu[l-1],v[l-1])
@@ -261,6 +296,9 @@ class Network():
 				jEnd = j * self.batchSize
 				self.updateWithBatch(self.trainX[:,jStart:jEnd], self.trainY[:,jStart:jEnd])
 				self.first = False
+				if self.augmentData:
+					self.updateWithBatch(rotate(self.trainX[:,jStart:jEnd]), self.trainY[:,jStart:jEnd])
+				
 				
 			if decayEta and i % 10 == 0:
 				self.eta = self.eta*0.95
@@ -273,12 +311,12 @@ def drawLog(low=-6, high=-1):
 	factor = np.random.randint(1,10)
 	return exp*factor
 
-def randomSearch(mode = "coarseSearch", etaLow = 0.005, etaHigh = 0.07, lambdLow = 0, lambdHigh=1e-7, epochs=5, act = 'RELU'):
+def randomSearch(mode = "coarseSearch", etaLow = 0.03, etaHigh = 0.06, lambdLow = 0, lambdHigh=1e-8, epochs=5, act = 'RELU'):
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 	testX, testLabelY, _, testY = getData("test_batch")
 	tries = 0
-	while tries <150:
+	while tries <300:
 		#eta = drawLog(-7,-1)
 		#lambd = drawLog(-10,-5)
 		eta = np.random.uniform(etaLow, etaHigh)
@@ -343,11 +381,8 @@ def findThreeBestFromCoarse(folder = "coarseSearch"):
 		print(np.max(eval(frame.valAccuracy.values[index])))
 
 if __name__ == "__main__":
-	#findThreeBestFromCoarse("3layerFineSearch")
-	#randomSearch("3layerFineSearch", act='RELU', epochs=10)
-	#0.03	0.0001
-	#0.03	0.00007
-	#0.04	0.0001
+	#findThreeBestFromCoarse("5layerFineSearch")
+	#randomSearch("5layerFineSearch", act='RELU', epochs=10)
 	
 	trainX, labelY, labelNames, trainY = getData("data_batch_1")
 	trainX2, labelY2, labelNames2, trainY2 = getData("data_batch_2")
@@ -356,7 +391,8 @@ if __name__ == "__main__":
 	trainX5, labelY5, labelNames5, trainY5 = getData("data_batch_5")
 	testX, testLabelY, _, testY = getData("test_batch")
 
-	
+	networkaccs = []
+	validmaxaccs = []
 
 	validationX, valLabelY, _, validationY = getData("data_batch_2")
 	validationX = validationX[:,9000:]
@@ -368,24 +404,33 @@ if __name__ == "__main__":
 	#validationX = validationX - np.tile(mean, (1, validationX.shape[1]))
 	#testX = testX - np.tile(mean, (1, testX.shape[1]))
 	# PRETTY GOOD RELU
-	eta = 0.035084277925012605 
-	lambd = 5.0549480544827314e-08
-	network = Network([3072, 700, 500, 500, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, activationFunc='RELU', useBatch = True)
-	loss, valLoss, trainAcc, validAcc = network.fit(epochs = 200, earlyStopping = False)
-
-	plt.plot(loss, label="train loss")
-	plt.plot(valLoss, label="validation loss")
-	plt.legend()
-	plt.xlabel("Epochs")
-	plt.ylabel("Loss")
-	plt.show()
-	plt.plot(trainAcc, label="train accuracy")
-	plt.plot(validAcc, label="validation accuracy")
-	plt.legend()
-	plt.xlabel("Epochs")
-	plt.ylabel("Accuracy")
-	plt.grid(True)
-	plt.show()
-	print(network.computeAccuracy(testX, testY))
-	print(np.max(validAcc))
+	eta = 0.01827276001401949			
+	lambd = 0.#4.468346741537177e-08  #3 layer
+	# 5layer
+	#eta = 0.0569836213249613
+	#lambd = 7.112134190154441e-9
+	for i in range(1):
+		network = Network([3072, 50, 30, 10], trainX, trainY, validationX, validationY, eta, regTerm=lambd, activationFunc='TANH', useBatch = True, augmentData = False, dropout=0.0)
+		loss, valLoss, trainAcc, validAcc = network.fit(epochs = 20, earlyStopping = False)
+		
+		plt.plot(loss, label="train loss")
+		plt.plot(valLoss, label="validation loss")
+		plt.legend()
+		plt.xlabel("Epochs")
+		plt.ylabel("Loss")
+		plt.show()
+		plt.plot(trainAcc, label="train accuracy")
+		plt.plot(validAcc, label="validation accuracy")
+		plt.legend()
+		plt.xlabel("Epochs")
+		plt.ylabel("Accuracy")
+		plt.grid(True)
+		plt.show()
+		print(network.computeAccuracy(testX, testY))
+		print(np.max(validAcc))
+		networkaccs.append(network.computeAccuracy(testX,testY))
+		validmaxaccs.append(np.max(validAcc))
+	print(networkaccs)
+	print(np.max(networkaccs))
+	print(np.max(validmaxaccs))
 	
