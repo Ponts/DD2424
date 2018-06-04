@@ -23,7 +23,7 @@ class DataHandler():
 		self.encoded = np.asarray(self.encoded).reshape(-1,self.len)
 
 	def getInputOutput(self, start, size=25):
-		return self.encoded[start:start+25], self.encoded[start+1:start+size+1]
+		return self.encoded[start:start+size], self.encoded[start+1:start+size+1]
 
 	def getIndex(self, letter):
 		return self.letterToIndex[letter]
