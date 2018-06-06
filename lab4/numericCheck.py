@@ -25,7 +25,7 @@ def computeGradsNumSlow(network, x, y, h=1e-5):
 	network.b = np.copy(started_b)
 	started_W = np.copy(network.W)
 	print("b done")
-
+	
 	for i in range(len(network.W)):
 		for j in range(len(network.W.T)):
 			W_try = np.copy(started_W)
@@ -39,10 +39,12 @@ def computeGradsNumSlow(network, x, y, h=1e-5):
 			grad_W[i][j] = (c2-c1)/(2*h)
 	
 		print(i)
+		
 	network.W = np.copy(started_W)
 	print("W done")
-
+	
 	started_V = np.copy(network.V)
+	
 	for i in range(len(network.V)):
 		for j in range(len(network.V.T)):
 			V_try = np.copy(started_V)
@@ -56,9 +58,10 @@ def computeGradsNumSlow(network, x, y, h=1e-5):
 			grad_V[i][j] = (c2-c1)/(2*h)
 	
 		print(i)
+	
 	print("V done")
 	network.V = np.copy(started_V)
-
+	
 	started_U = np.copy(network.U)
 	for i in range(len(network.U)):
 		for j in range(len(network.U.T)):
@@ -73,10 +76,11 @@ def computeGradsNumSlow(network, x, y, h=1e-5):
 			grad_U[i][j] = (c2-c1)/(2*h)
 	
 		print(i)
+
 	print("U done")
 	network.U = np.copy(network.U)
 
-
+	
 	started_c = np.copy(network.c)
 	for i in range(len(network.c)):
 		c_try = np.copy(started_c)
@@ -90,7 +94,7 @@ def computeGradsNumSlow(network, x, y, h=1e-5):
 		grad_c[i] = (c2-c1)/(2*h)
 
 	network.c = np.copy(started_c)
-
+	
 
 	return grad_W, grad_b, grad_V, grad_U, grad_c
 
