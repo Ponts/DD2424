@@ -21,7 +21,7 @@ class DataHandler():
 
 	def getInputOutput(self, start, size=25):
 		x = self.data[start:start+size]
-		y = self.data[start+1:start+size+1]
+		y = self.data[start+1:start+1+size]
 		encodedX = np.zeros((self.len,size))
 		encodedY = np.zeros((self.len,size))
 		for i in range(len(x)):

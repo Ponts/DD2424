@@ -15,9 +15,9 @@ class Network():
 	def __init__(self, setup, eta=0.1, seqLength = 25):
 		self.m = setup[1]
 		sig = 0.01
-		self.W = np.random.randn(self.m,self.m) * sig
-		self.U = np.random.randn(self.m, setup[0]) * sig				
-		self.V = np.random.randn(setup[0],self.m) * sig	
+		self.W = np.random.rand(self.m,self.m) * sig
+		self.U = np.random.rand(self.m, setup[0]) * sig				
+		self.V = np.random.rand(setup[0],self.m) * sig	
 		self.b = np.zeros((self.m,1))
 		self.c = np.zeros((setup[0],1))
 
@@ -26,21 +26,25 @@ class Network():
 		self.eta = eta
 		self.e = 1e-8
 		self.prevh = np.zeros((self.W.shape[0],1))
+
 		#adagrad stuff
-		self.mW = np.zeros((self.m,self.m))
-		self.mU = np.zeros((self.m, setup[0]))
-		self.mV = np.zeros((setup[0],self.m))
-		self.mb = np.zeros((self.m,1))
-		self.mc = np.zeros((setup[0],1))
+		self.mW = np.zeros(self.W.shape)
+		self.mU = np.zeros(self.U.shape)
+		self.mV = np.zeros(self.V.shape)
+		self.mb = np.zeros(self.b.shape)
+		self.mc = np.zeros(self.c.shape)
+
 
 	def forward(self, X):
 		p = []
 		h = [self.prevh]
 		for t in range(X.shape[1]):
 			apart = np.dot(self.U,X[:,t:t+1]) + np.dot(self.W,h[-1]) + self.b
-			h.append(np.tanh(apart))
-			o = np.dot(self.V,h[-1]) + self.c
+			hidden = np.tanh(apart)
+			h.append(hidden)
+			o = np.dot(self.V,hidden) + self.c
 			p.append(self.softMax(o))
+
 		self.prevh = h[-1]
 		return h, p #Fix this at some point
 
@@ -74,7 +78,6 @@ class Network():
 
 	def getL(self, P, Y):
 		total = 0.0
-
 		for i in range(Y.shape[1]):
 			total -=  np.log(np.dot(Y[:,i:i+1].T, P[i])).item()
 		return total
@@ -95,7 +98,6 @@ class Network():
 
 	def calculateLoss(self,X,Y):
 		h,p = self.forward(X)
-		#print(p)
 		loss = self.getL(p,Y)
 		return loss
 
@@ -107,24 +109,23 @@ class Network():
 		dldv = np.zeros(self.V.shape)
 		dldc = np.zeros(self.c.shape)
 		h,p = self.forward(x)
-		dlda = np.zeros(h[0].shape)
+		dlda = np.zeros(h[-1].shape)
+		
 
 		for t in reversed(range(x.shape[1])):
-			dldo = p[t]-y[:,t:t+1]
-			dldc += dldo
+			dldo = p[t] - y[:,t:t+1]
 			dldv += np.matmul(dldo, h[t+1].T)
+			dldc += dldo
+
 			dldh = np.matmul(self.V.T, dldo) + np.matmul(self.W.T, dlda)
-			dlda = np.multiply(self.deltatanh(h[t+1]), dldh)
+			dlda = np.multiply(dldh, self.deltatanh(h[t+1]))
 
 			dldw += np.matmul(dlda, h[t].T)
-			dldu += np.matmul(dlda, x[:,t:t+1].T)
 			dldb += dlda
-
-			dlda = np.matmul(self.W.T, dlda)
-
-
+			dldu += np.matmul(dlda, x[:,t:t+1].T)
+			
 		#dldw = np.clip(dldw,-5.,5.)
-		#dldb = np.clip(dldb,-5.,5.)
+		#dldb = np.clip(dldb,-5.,5.) 
 		#dldu = np.clip(dldu,-5.,5.)
 		#dldv = np.clip(dldv,-5.,5.)
 		#dldc = np.clip(dldc,-5.,5.)
@@ -169,10 +170,10 @@ if __name__ == "__main__":
 	counter = 0
 	i = 0
 	
-	while counter < 2:
-		x,y = dh.getInputOutput(i,25)
+	while counter < 1:
+		x,y = dh.getInputOutput(i,network.seqLength)
 		network.updateWithBatch(x,y)
-		if i % 1 == 0:
+		if i % 1 == 10:
 			print("Loss: " + str(network.calculateLoss(x,y)))
 		counter += 1
 		i += network.seqLength
