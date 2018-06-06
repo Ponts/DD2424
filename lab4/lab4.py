@@ -107,27 +107,28 @@ class Network():
 		dldv = np.zeros(self.V.shape)
 		dldc = np.zeros(self.c.shape)
 		h,p = self.forward(x)
-		dldh = np.zeros(h[0].shape)
+		dlda = np.zeros(h[0].shape)
 
 		for t in reversed(range(x.shape[1])):
 			dldo = p[t]-y[:,t:t+1]
 			dldc += dldo
-			dldv += np.dot(dldo,h[t+1].T)
-			dldh = (self.deltatanh(h[t+1])) * (np.dot(self.V.T, dldo) + dldh)
+			dldv += np.dot(dldo, h[t+1].T)
+			dldh = (np.dot(self.V.T, dldo) + np.dot(self.W.T, dlda))
+			dlda = (self.deltatanh(h[t+1])) * dlda
 
-			dldw += np.dot(dldh, h[t].T)
-			dldu += np.dot(dldh, x[:,t:t+1].T)
-			dldb += dldh
+			dldw += np.dot(dlda, h[t].T)
+			dldu += np.dot(dlda, x[:,t:t+1].T)
+			dldb += dlda
 
-			dldh = np.dot(self.W.T, dldh)
+			dlda = np.dot(self.W.T, dlda)
 
 		
 
-		dldw = np.clip(dldw,-5.,5.)
-		dldb = np.clip(dldb,-5.,5.)
-		dldu = np.clip(dldu,-5.,5.)
-		dldv = np.clip(dldv,-5.,5.)
-		dldc = np.clip(dldc,-5.,5.)
+		#dldw = np.clip(dldw,-5.,5.)
+		#dldb = np.clip(dldb,-5.,5.)
+		#dldu = np.clip(dldu,-5.,5.)
+		#dldv = np.clip(dldv,-5.,5.)
+		#dldc = np.clip(dldc,-5.,5.)
 
 		return dldw, dldb, dldu, dldv, dldc
 
@@ -170,7 +171,7 @@ if __name__ == "__main__":
 	i = 0
 	
 	while counter < 2:
-		x,y = dh.getInputOutput(i,1)
+		x,y = dh.getInputOutput(i,25)
 		network.updateWithBatch(x,y)
 		if i % 1 == 0:
 			print("Loss: " + str(network.calculateLoss(x,y)))
