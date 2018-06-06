@@ -112,17 +112,16 @@ class Network():
 		for t in reversed(range(x.shape[1])):
 			dldo = p[t]-y[:,t:t+1]
 			dldc += dldo
-			dldv += np.dot(dldo, h[t+1].T)
-			dldh = (np.dot(self.V.T, dldo) + np.dot(self.W.T, dlda))
-			dlda = (self.deltatanh(h[t+1])) * dlda
+			dldv += np.matmul(dldo, h[t+1].T)
+			dldh = np.matmul(self.V.T, dldo) + np.matmul(self.W.T, dlda)
+			dlda = np.multiply(self.deltatanh(h[t+1]), dldh)
 
-			dldw += np.dot(dlda, h[t].T)
-			dldu += np.dot(dlda, x[:,t:t+1].T)
+			dldw += np.matmul(dlda, h[t].T)
+			dldu += np.matmul(dlda, x[:,t:t+1].T)
 			dldb += dlda
 
-			dlda = np.dot(self.W.T, dlda)
+			dlda = np.matmul(self.W.T, dlda)
 
-		
 
 		#dldw = np.clip(dldw,-5.,5.)
 		#dldb = np.clip(dldb,-5.,5.)
