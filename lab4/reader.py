@@ -19,12 +19,12 @@ class DataHandler():
 				for i in range(len(self.tweets)):
 					try:
 						line = re.sub(r'[^\x00-\x7F]+',' ',self.tweets[i]["full_text"]) 
-						line = re.sub(r'https?:\/\/.*[\r\n]*', '', line).lower() + self.EOT
+						line = re.sub(r'https?:\/\/.*[\r\n]*', '', line) + self.EOT
 						#if self.EOT in self.tweets[i]["full_text"]:
 						#	print("Tweet has EOF")
 					except KeyError:
 						line = re.sub(r'[^\x00-\x7F]+',' ',self.tweets[i]["text"]) 
-						line = re.sub(r'https?:\/\/.*[\r\n]*', '', line).lower() + self.EOT
+						line = re.sub(r'https?:\/\/.*[\r\n]*', '', line) + self.EOT
 						#if self.EOT in self.tweets[i]["text"]:
 						#	print("Tweet has EOF")
 					self.data+=line
