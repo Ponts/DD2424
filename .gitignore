@@ -4,5 +4,15 @@
 /lab4/cifar-10-batches-py/
 /lab3/3layerCoarse/
 /lab3/5layerCoarse/
+/lab4/_*
+/lab4/__*
 /lab3/3layerFineSearch/
 /lab3/5layerFineSearch/
+/lab4/trump_tweet_data_archive-master/
+/lab4/80*
+/lab4/40*
+/lab4/master*
+/lab4/__pycache__/
+
+lab4/__pycache__/reader.cpython-36.pyc
+lab4/__pycache__/lab4.cpython-36.pyc

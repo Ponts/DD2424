@@ -16,10 +16,12 @@ def computeGradsNumSlow(network, x, y, h=1e-5):
 		b_try[i] = b_try[i] - h
 		network.b = np.copy(b_try)
 		c1 = network.calculateLoss(x, y)
+		network.resetState()
 		b_try = np.copy(started_b)
 		b_try[i] = b_try[i] + h
 		network.b = np.copy(b_try)
 		c2 = network.calculateLoss(x, y)
+		network.resetState()
 		grad_b[i] = (c2-c1)/(2*h)
 
 	network.b = np.copy(started_b)
@@ -32,10 +34,12 @@ def computeGradsNumSlow(network, x, y, h=1e-5):
 			W_try[i][j] = W_try[i][j] - h
 			network.W = np.copy(W_try)
 			c1 = network.calculateLoss(x, y)
+			network.resetState()
 			W_try = np.copy(started_W)
 			W_try[i][j] = W_try[i][j] + h
 			network.W = np.copy(W_try)
 			c2 = network.calculateLoss(x, y)
+			network.resetState()
 			grad_W[i][j] = (c2-c1)/(2*h)
 		print(i)
 		
@@ -50,10 +54,12 @@ def computeGradsNumSlow(network, x, y, h=1e-5):
 			V_try[i][j] = V_try[i][j] - h
 			network.V = np.copy(V_try)
 			c1 = network.calculateLoss(x, y)
+			network.resetState()
 			V_try = np.copy(started_V)
 			V_try[i][j] = V_try[i][j] + h
 			network.V = np.copy(V_try)
 			c2 = network.calculateLoss(x, y)
+			network.resetState()
 			grad_V[i][j] = (c2-c1)/(2*h)
 	
 		print(i)
@@ -68,10 +74,12 @@ def computeGradsNumSlow(network, x, y, h=1e-5):
 			U_try[i][j] = U_try[i][j] - h
 			network.U = np.copy(U_try)
 			c1 = network.calculateLoss(x, y)
+			network.resetState()
 			U_try = np.copy(started_U)
 			U_try[i][j] = U_try[i][j] + h
 			network.U = np.copy(U_try)
 			c2 = network.calculateLoss(x, y)
+			network.resetState()
 			grad_U[i][j] = (c2-c1)/(2*h)
 	
 		print(i)
@@ -86,10 +94,12 @@ def computeGradsNumSlow(network, x, y, h=1e-5):
 		c_try[i] = c_try[i] - h
 		network.c = np.copy(c_try)
 		c1 = network.calculateLoss(x, y)
+		network.resetState()
 		c_try = np.copy(started_c)
 		c_try[i] = c_try[i] + h
 		network.c = np.copy(c_try)
 		c2 = network.calculateLoss(x, y)
+		network.resetState()
 		grad_c[i] = (c2-c1)/(2*h)
 
 	network.c = np.copy(started_c)
@@ -105,7 +115,7 @@ x,y = dh.getInputOutput(0,25)
 
 grad_W, grad_b, grad_V, grad_U, grad_c = computeGradsNumSlow(network, x, y)
 e = 1e-6
-dldw, dldb, dldu, dldv, dldc = network.calculateGradient(x,y)
+dldw, dldb, dldu, dldv, dldc, loss = network.calculateGradient(x,y)
 
 print("W num")
 print(np.mean(grad_W))
