@@ -14,7 +14,4 @@
 /lab4/master*
 /lab4/__pycache__/
 
-lab4/__pycache__/reader.cpython-36.pyc
-lab4/__pycache__/lab4.cpython-36.pyc
-lab4/__pycache__/reader.cpython-36.pyc
-lab4/__pycache__/lab4.cpython-36.pyc
+lab4/__pycache__/*
