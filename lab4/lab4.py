@@ -181,7 +181,7 @@ class Network():
 
 
 	def trainPotter(self):
-		epochLim = 100
+		epochLim = 10
 		counter = 0
 		index = self.seqLength
 		iterN = 1
@@ -189,7 +189,8 @@ class Network():
 		smoothLoss = self.calculateLoss(x,y)
 		self.updateWithBatch(x,y)
 		print("Loss: " + str(smoothLoss))
-
+		printLoss = [smoothLoss]
+		printX = [0]
 		while counter < epochLim:
 			x,y = self.dh.getInputOutput(index, self.seqLength)
 			loss = self.updateWithBatch(x,y)
@@ -206,7 +207,16 @@ class Network():
 			else:
 				iterN += 1
 				index += self.seqLength
-		print(network.generateString(200))
+			if iterN % 5000 == 0:
+				printLoss.append(smoothLoss)
+				printX.append(iterN)
+
+		plt.plot(printX,printLoss)
+		plt.xlabel("Iteration")
+		plt.ylabel("Smooth loss")
+		plt.show()
+			
+		print(network.generateString(1000))
 
 
 
@@ -223,10 +233,11 @@ class Network():
 			index = eotI[0]
 		smoothLoss = self.calculateLoss(x,y)
 		self.updateWithBatch(x,y)
+		self.resetState()
 		print("Loss: " + str(smoothLoss))
 
 		while counter < epochLim:
-			self.resetState()
+			
 			x,y = self.dh.getInputOutput(index, self.seqLength)
 			eotI = np.argwhere(x[self.dh.endChar] == 1)
 			if len(eotI): #End of tweet char in text
@@ -247,6 +258,7 @@ class Network():
 				iterN += 1
 				if len(eotI):
 					index += eotI.item(0)+1
+					self.resetState()
 				else:
 					index += self.seqLength
 		print(network.generateTrump())
@@ -256,9 +268,11 @@ class Network():
 if __name__ == "__main__":
 	#Here we train for Trump
 	network = Network(100, mode="Trump")
-	network.trainTrump()
+	#network.trainTrump()
 
 	#Here we train for Potter
 	#network = Network(100)
+
+	#print(network.generateString(200))
 	#network.trainPotter()
 

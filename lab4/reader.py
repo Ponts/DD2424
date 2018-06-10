@@ -47,10 +47,6 @@ class DataHandler():
 		self.text.close()
 
 
-
-		
-
-
 	def getInputOutput(self, start, size=25):
 		x = self.data[start:start+size]
 		y = self.data[start+1:start+1+size]

@@ -110,26 +110,14 @@ def computeGradsNumSlow(network, x, y, h=1e-5):
 
 dh = reader.DataHandler()
 print("data aquired")
-network = lab4.Network([dh.len,100,dh.len])
+network = lab4.Network(5)
 x,y = dh.getInputOutput(0,25)
 
 grad_W, grad_b, grad_V, grad_U, grad_c = computeGradsNumSlow(network, x, y)
 e = 1e-6
 dldw, dldb, dldu, dldv, dldc, loss = network.calculateGradient(x,y)
 
-print("W num")
-print(np.mean(grad_W))
-print("b num")
-print(np.mean(grad_b))
-print("U num")
-print(np.mean(grad_U))
-print("----------")
-print("W anal")
-print(np.mean(dldw))
-print("b anal")
-print(np.mean(dldb))
-print("U anal")
-print(np.mean(dldu))
+
 
 print("W")
 print(np.max((abs(dldw - grad_W)) / np.clip((abs(grad_W) + abs(dldw)), a_min=e, a_max=9999)))
